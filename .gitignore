@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Database files (dados locais do usuário)
+*.db
+*.sqlite
+*.sqlite3
+decterum.db*
+
+# Logs
+*.log
+logs/
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cloudflare
+.cloudflared/
+*.json
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+temp/
+cache/
+tmp/
+
+# User uploads
+uploads/
+media/
