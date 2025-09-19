@@ -6,7 +6,7 @@ Sistema P2P completo com interface tipo app móvel para chat, feed social e comp
 
 ### 1. Clone e Instale
 ```bash
-git clone [<repository>](https://github.com/jose-pires-neto/DECTERUM.git)
+git clone https://github.com/jose-pires-neto/DECTERUM.git
 cd decterum
 pip install -r requirements.txt
 ```
