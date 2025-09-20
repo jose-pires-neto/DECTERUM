@@ -18,6 +18,7 @@ import asyncio
 import subprocess
 import signal
 from datetime import datetime, timedelta
+from network_discovery import DiscoveredPeer
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse

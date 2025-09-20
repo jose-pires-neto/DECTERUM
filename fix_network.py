@@ -25,10 +25,10 @@ def install_dependencies():
     print("📦 Instalando dependências...")
     
     try:
-        # Instalar netifaces para descoberta de rede
-        subprocess.run([sys.executable, "-m", "pip", "install", "netifaces==0.11.0"], 
+        # Instalar psutil para descoberta de rede
+        subprocess.run([sys.executable, "-m", "pip", "install", "psutil>=6.0.0"],
                       check=True, capture_output=True)
-        print("   ✅ netifaces instalado")
+        print("   ✅ psutil instalado")
         
         # Verificar outras dependências
         required = [
@@ -90,9 +90,18 @@ import logging
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 import struct
-import netifaces  # pip install netifaces
+import psutil  # pip install psutil
+import ipaddress
 
 logger = logging.getLogger(__name__)
+
+def calculate_broadcast_address(ip: str, netmask: str) -> str:
+    """Calcula endereço de broadcast baseado em IP e netmask"""
+    try:
+        network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+        return str(network.broadcast_address)
+    except:
+        return None
 
 @dataclass
 class DiscoveredPeer:
@@ -125,12 +134,11 @@ class LANDiscovery:
         """Obtém todos os IPs das interfaces de rede"""
         ips = []
         try:
-            # Usar netifaces para detecção precisa
-            for interface in netifaces.interfaces():
-                addrs = netifaces.ifaddresses(interface)
-                if netifaces.AF_INET in addrs:
-                    for addr_info in addrs[netifaces.AF_INET]:
-                        ip = addr_info.get('addr')
+            # Usar psutil para detecção precisa
+            for interface, addrs in psutil.net_if_addrs().items():
+                for addr in addrs:
+                    if addr.family == socket.AF_INET:
+                        ip = addr.address
                         if ip and not ip.startswith('127.'):
                             ips.append(ip)
         except:
@@ -154,15 +162,22 @@ class LANDiscovery:
         """Obtém endereços de broadcast para todas as redes"""
         broadcasts = []
         try:
-            for interface in netifaces.interfaces():
-                addrs = netifaces.ifaddresses(interface)
-                if netifaces.AF_INET in addrs:
-                    for addr_info in addrs[netifaces.AF_INET]:
-                        broadcast = addr_info.get('broadcast')
-                        if broadcast:
-                            broadcasts.append(broadcast)
+            for interface, addrs in psutil.net_if_addrs().items():
+                for addr in addrs:
+                    if addr.family == socket.AF_INET:
+                        # Tentar usar broadcast address nativo do psutil
+                        if hasattr(addr, 'broadcast') and addr.broadcast:
+                            broadcasts.append(addr.broadcast)
+                        # Fallback: calcular broadcast usando IP + netmask
+                        elif hasattr(addr, 'netmask') and addr.netmask:
+                            calculated_broadcast = calculate_broadcast_address(addr.address, addr.netmask)
+                            if calculated_broadcast and calculated_broadcast not in broadcasts:
+                                broadcasts.append(calculated_broadcast)
         except:
-            # Fallback para redes comuns
+            pass
+
+        # Se não encontrou nenhum broadcast, usar fallback para redes comuns
+        if not broadcasts:
             broadcasts = [
                 '192.168.1.255', '192.168.0.255', '192.168.2.255',
                 '10.0.0.255', '172.16.255.255'
@@ -469,7 +484,7 @@ cryptography==41.0.7
 python-multipart==0.0.6
 aiohttp==3.9.1
 asyncio
-netifaces==0.11.0'''
+psutil>=6.0.0'''
     
     with open('requirements.txt', 'w', encoding='utf-8') as f:
         f.write(requirements)
