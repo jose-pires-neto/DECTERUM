@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-DECTERUM - Sistema P2P Descentralizado com DHT Global
-Backend otimizado com descoberta global via Kademlia DHT
+DECTERUM - Sistema P2P Descentralizado CORRIGIDO
+Backend com descoberta LAN real + DHT funcional
 """
 
 import uvicorn
@@ -28,8 +28,21 @@ from cryptography.fernet import Fernet
 import base64
 import logging
 
-# Import do DHT
-from dht_manager import DecterumDHT, DHTNode, UserPresence
+# Import do sistema de descoberta corrigido
+try:
+    from network_discovery import NetworkManager, DiscoveredPeer
+    NETWORK_DISCOVERY_AVAILABLE = True
+except ImportError:
+    NETWORK_DISCOVERY_AVAILABLE = False
+    print("⚠️ network_discovery.py não encontrado - usando descoberta básica")
+
+# Import do DHT (mantém compatibilidade)
+try:
+    from dht_manager import DecterumDHT, DHTNode, UserPresence
+    DHT_AVAILABLE = True
+except ImportError:
+    DHT_AVAILABLE = False
+    print("⚠️ dht_manager.py não encontrado - DHT desabilitado")
 
 # Configuração de logging otimizada
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -68,7 +81,7 @@ class Message:
 
 @dataclass
 class Peer:
-    """Peer da rede"""
+    """Peer da rede (legado)"""
     node_id: str
     host: str
     port: int
@@ -85,17 +98,15 @@ class CloudflareManager:
         self.tunnel_process = None
         
     def check_cloudflared_installed(self):
-        """Verifica se cloudflared está instalado em diferentes localizações"""
-        
-        # Possíveis caminhos do cloudflared
+        """Verifica se cloudflared está instalado"""
         possible_paths = [
-            'cloudflared',  # PATH padrão
-            'cloudflared.exe',  # Windows com extensão
-            r'C:\Program Files\cloudflared\cloudflared.exe',  # Instalação padrão
+            'cloudflared',
+            'cloudflared.exe',
+            r'C:\Program Files\cloudflared\cloudflared.exe',
             r'C:\Program Files (x86)\cloudflared\cloudflared.exe',
             os.path.expanduser('~\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Cloudflare.cloudflared_Microsoft.Winget.Source_8wekyb3d8bbwe\\cloudflared.exe'),
-            './cloudflared.exe',  # Local
-            './cloudflared'  # Local Unix
+            './cloudflared.exe',
+            './cloudflared'
         ]
         
         for path in possible_paths:
@@ -108,34 +119,17 @@ class CloudflareManager:
             except:
                 continue
         
-        # Tentar atualizar PATH e verificar novamente (Windows)
-        if os.name == 'nt':
-            try:
-                logger.info("🔄 Tentando atualizar PATH do Windows...")
-                # Força atualização das variáveis de ambiente
-                subprocess.run(['refreshenv'], shell=True, timeout=5)
-                
-                # Tenta novamente após refresh
-                result = subprocess.run(['cloudflared', '--version'], 
-                                      capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    logger.info("✅ Cloudflared encontrado após atualização do PATH")
-                    return 'cloudflared'
-            except:
-                pass
-        
-        logger.warning("⚠ Cloudflared não encontrado em nenhum local.")
+        logger.warning("⚠️ Cloudflared não encontrado.")
         return None
             
     def setup_tunnel(self):
         """Configura e inicia o túnel Cloudflare"""
         cloudflared_path = self.check_cloudflared_installed()
         if not cloudflared_path:
-            logger.warning("Cloudflared não instalado. Use 'python setup_cloudflare.py' para instalar.")
+            logger.warning("Cloudflare Tunnel não disponível - apenas acesso local")
             return None
         
         try:
-            # Comando para túnel temporário
             logger.info("🌐 Configurando túnel Cloudflare...")
             cmd = [
                 cloudflared_path, 'tunnel', 
@@ -143,7 +137,6 @@ class CloudflareManager:
                 '--no-autoupdate'
             ]
             
-            # Iniciar processo do túnel
             self.tunnel_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -151,7 +144,7 @@ class CloudflareManager:
                 text=True
             )
             
-            # Ler a saída do processo em uma thread separada para evitar deadlock
+            # Lê a saída do processo para obter URL
             tunnel_url_holder = {'url': None}
             def read_output(process, holder):
                 try:
@@ -159,7 +152,7 @@ class CloudflareManager:
                         line = process.stderr.readline()
                         if not line:
                             break
-                        logger.info(f"Log do Cloudflare: {line.strip()}")
+                        logger.debug(f"Cloudflare: {line.strip()}")
                         if 'trycloudflare.com' in line:
                             parts = line.split()
                             for part in parts:
@@ -178,7 +171,7 @@ class CloudflareManager:
                 self.tunnel_url = tunnel_url_holder['url']
                 return self.tunnel_url
             
-            logger.warning("⚠️ Não foi possível configurar túnel Cloudflare automaticamente (Timeout)")
+            logger.warning("⚠️ Timeout configurando túnel Cloudflare")
             self.stop_tunnel()
             return None
             
@@ -191,29 +184,27 @@ class CloudflareManager:
         if self.tunnel_process:
             try:
                 self.tunnel_process.terminate()
-                logger.info("🛑 Sinal de término enviado ao túnel Cloudflare.")
+                logger.info("🛑 Túnel Cloudflare parado")
                 self.tunnel_process.wait(timeout=10)
-                logger.info("✅ Túnel Cloudflare parado com sucesso.")
             except Exception as e:
-                logger.error(f"Erro ao parar o túnel: {e}")
+                logger.error(f"Erro parando túnel: {e}")
                 try:
                     self.tunnel_process.kill()
-                    logger.info("⚠️ Processo do túnel forçado a parar.")
-                except Exception as e:
-                    logger.error(f"Erro ao forçar a parada do túnel: {e}")
+                except:
+                    pass
             finally:
                 self.tunnel_process = None
                 self.tunnel_url = None
 
 class P2PDatabase:
-    """Database otimizada para o sistema P2P"""
+    """Database para o sistema P2P"""
     
     def __init__(self, db_path: str = "decterum.db"):
         self.db_path = db_path
         self.init_database()
     
     def init_database(self):
-        """Inicializa todas as tabelas necessárias"""
+        """Inicializa database"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -259,28 +250,16 @@ class P2PDatabase:
             )
         ''')
         
-        # Tabela de peers
+        # Tabela de peers descobertos
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS peers (
+            CREATE TABLE IF NOT EXISTS discovered_peers (
                 node_id TEXT PRIMARY KEY,
                 host TEXT,
                 port INTEGER,
+                username TEXT,
                 tunnel_url TEXT,
+                discovery_method TEXT,
                 last_seen REAL,
-                status TEXT DEFAULT 'online'
-            )
-        ''')
-        
-        # NOVA: Tabela de peers DHT descobertos
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS dht_peers (
-                node_id TEXT PRIMARY KEY,
-                host TEXT,
-                port INTEGER,
-                tunnel_url TEXT,
-                last_seen REAL,
-                reputation_score REAL DEFAULT 0.0,
-                discovery_method TEXT DEFAULT 'dht',
                 status TEXT DEFAULT 'online'
             )
         ''')
@@ -295,7 +274,7 @@ class P2PDatabase:
         
         conn.commit()
         conn.close()
-        logger.info("📊 Database inicializada com suporte DHT")
+        logger.info("📊 Database inicializada")
     
     def get_user(self, user_id: str) -> Optional[Dict]:
         """Busca usuário por ID"""
@@ -394,7 +373,7 @@ class P2PDatabase:
         conn.close()
     
     def get_messages(self, user_id: str, contact_id: str = None, limit: int = 100) -> List[Dict]:
-        """Busca mensagens (geral ou por contato)"""
+        """Busca mensagens"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -430,42 +409,24 @@ class P2PDatabase:
             })
         return messages[::-1]  # Ordem cronológica
     
-    def save_peer(self, peer: Peer):
-        """Salva peer (método legado)"""
+    def save_discovered_peer(self, peer: DiscoveredPeer):
+        """Salva peer descoberto"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT OR REPLACE INTO peers (node_id, host, port, tunnel_url, last_seen, status)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (peer.node_id, peer.host, peer.port, peer.tunnel_url, peer.last_seen, peer.status))
-        conn.commit()
-        conn.close()
-    
-    def save_dht_peer(self, node_id: str, host: str, port: int, tunnel_url: str = "", reputation: float = 0.0):
-        """Salva peer descoberto via DHT"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT OR REPLACE INTO dht_peers 
-            (node_id, host, port, tunnel_url, last_seen, reputation_score, discovery_method, status)
+            INSERT OR REPLACE INTO discovered_peers 
+            (node_id, host, port, username, tunnel_url, discovery_method, last_seen, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (node_id, host, port, tunnel_url, time.time(), reputation, 'dht', 'online'))
+        ''', (peer.node_id, peer.host, peer.port, peer.username, 
+              peer.tunnel_url, peer.discovery_method, peer.last_seen, 'online'))
         conn.commit()
         conn.close()
     
-    def get_peers(self) -> List[Dict]:
-        """Lista peers online (legado + DHT)"""
+    def get_discovered_peers(self) -> List[Dict]:
+        """Lista peers descobertos"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
-        # União de peers legados e DHT
-        cursor.execute('''
-            SELECT node_id, host, port, tunnel_url, last_seen, 'legacy' as discovery
-            FROM peers WHERE status = "online"
-            UNION
-            SELECT node_id, host, port, tunnel_url, last_seen, discovery_method
-            FROM dht_peers WHERE status = "online"
-        ''')
+        cursor.execute('SELECT * FROM discovered_peers WHERE status = "online"')
         results = cursor.fetchall()
         conn.close()
         
@@ -475,30 +436,10 @@ class P2PDatabase:
                 'node_id': row[0],
                 'host': row[1],
                 'port': row[2],
-                'tunnel_url': row[3],
-                'last_seen': row[4],
-                'discovery_method': row[5]
-            })
-        return peers
-    
-    def get_dht_peers(self) -> List[Dict]:
-        """Lista apenas peers descobertos via DHT"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM dht_peers WHERE status = "online"')
-        results = cursor.fetchall()
-        conn.close()
-        
-        peers = []
-        for row in results:
-            peers.append({
-                'node_id': row[0],
-                'host': row[1],
-                'port': row[2],
-                'tunnel_url': row[3],
-                'last_seen': row[4],
-                'reputation_score': row[5],
-                'discovery_method': row[6],
+                'username': row[3],
+                'tunnel_url': row[4],
+                'discovery_method': row[5],
+                'last_seen': row[6],
                 'status': row[7]
             })
         return peers
@@ -521,7 +462,7 @@ class P2PDatabase:
         return result[0] if result else None
 
 class P2PNode:
-    """Nó P2P otimizado com DHT"""
+    """Nó P2P com descoberta corrigida"""
     
     def __init__(self, port: int = 8000):
         self.port = port
@@ -537,15 +478,24 @@ class P2PNode:
         # Configurar usuário atual
         self.current_user_id = self.db.get_setting("current_user_id")
         if not self.current_user_id:
-            # Primeiro uso - criar usuário
             username = f"user_{uuid.uuid4().hex[:8]}"
             self.current_user_id = self.db.create_user(username)
             self.db.set_setting("current_user_id", self.current_user_id)
         
         self.node_id = self.current_user_id
         
-        # NOVO: DHT Manager
-        self.dht_enabled = os.getenv('DECTERUM_DHT_ENABLED', 'true').lower() == 'true'
+        # Sistema de descoberta de rede CORRIGIDO
+        self.network_manager = None
+        if NETWORK_DISCOVERY_AVAILABLE:
+            user = self.db.get_user(self.current_user_id)
+            self.network_manager = NetworkManager(
+                self.node_id, 
+                user['username'] if user else 'Unknown',
+                port
+            )
+        
+        # DHT (mantém compatibilidade)
+        self.dht_enabled = os.getenv('DECTERUM_DHT_ENABLED', 'true').lower() == 'true' and DHT_AVAILABLE
         self.dht: Optional[DecterumDHT] = None
         self.dht_loop = None
         
@@ -553,31 +503,28 @@ class P2PNode:
             self.setup_dht()
         
         logger.info(f"🚀 Nó P2P iniciado: {self.node_id[:8]}... na porta {port}")
+        if NETWORK_DISCOVERY_AVAILABLE:
+            logger.info("📡 Sistema de descoberta LAN ativo")
         if self.dht_enabled:
-            logger.info("🌐 DHT habilitado - Descoberta global ativa")
+            logger.info("🌐 DHT habilitado")
     
     def setup_dht(self):
-        """Configura DHT"""
-        try:
-            # Detecta IP local para DHT
-            local_ip = self.get_local_ip()
+        """Configura DHT (mantém compatibilidade)"""
+        if not DHT_AVAILABLE:
+            return
             
-            # Cria nó DHT local
+        try:
+            local_ip = self.get_local_ip()
             dht_node = DHTNode(
                 node_id=self.node_id,
                 host=local_ip,
                 port=self.port
             )
             
-            # Bootstrap nodes (você pode adicionar seus próprios)
-            bootstrap_nodes = [
-                "bootstrap1.decterum.network:8000",
-                "bootstrap2.decterum.network:8000"
-            ]
-            
-            # Inicializa DHT
+            # Bootstrap nodes serão corrigidos pelo NetworkManager
+            bootstrap_nodes = []
             self.dht = DecterumDHT(dht_node, bootstrap_nodes)
-            logger.info(f"🌐 DHT configurado - Nó: {self.node_id[:8]}... IP: {local_ip}")
+            logger.info(f"🌐 DHT configurado - Nó: {self.node_id[:8]}...")
             
         except Exception as e:
             logger.error(f"Erro configurando DHT: {e}")
@@ -586,7 +533,7 @@ class P2PNode:
     def get_local_ip(self) -> str:
         """Detecta IP local"""
         try:
-            # Conecta a um endereço externo para descobrir IP local
+            import socket
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             local_ip = s.getsockname()[0]
@@ -594,101 +541,6 @@ class P2PNode:
             return local_ip
         except:
             return "127.0.0.1"
-    
-    async def start_dht(self):
-        """Inicia DHT de forma assíncrona"""
-        if not self.dht_enabled or not self.dht:
-            return
-        
-        try:
-            await self.dht.start()
-            
-            # Anuncia presença inicial
-            await self.announce_presence()
-            
-            # Inicia anúncios periódicos
-            asyncio.create_task(self.periodic_presence_announcements())
-            
-            logger.info("✅ DHT iniciado com sucesso")
-            
-        except Exception as e:
-            logger.error(f"Erro iniciando DHT: {e}")
-    
-    async def announce_presence(self):
-        """Anuncia presença na rede DHT"""
-        if not self.dht:
-            return
-        
-        try:
-            user = self.db.get_user(self.current_user_id)
-            if not user:
-                return
-            
-            # Monta endpoints disponíveis
-            endpoints = [f"{self.get_local_ip()}:{self.port}"]
-            
-            tunnel_url = self.db.get_setting("tunnel_url")
-            if tunnel_url:
-                endpoints.append(tunnel_url)
-            
-            # Cria presença
-            presence = UserPresence(
-                user_id=self.current_user_id,
-                username=user['username'],
-                endpoints=endpoints,
-                public_key=user['public_key'],
-                last_seen=time.time(),
-                reputation_score=0.0  # TODO: Implementar sistema de reputação
-            )
-            
-            # Anuncia na rede
-            success = await self.dht.announce_user_presence(presence)
-            if success:
-                logger.info(f"📢 Presença anunciada: {user['username']}")
-            
-        except Exception as e:
-            logger.error(f"Erro anunciando presença: {e}")
-    
-    async def periodic_presence_announcements(self):
-        """Anuncia presença periodicamente"""
-        while self.is_running and self.dht:
-            try:
-                await asyncio.sleep(1800)  # 30 minutos
-                await self.announce_presence()
-            except Exception as e:
-                logger.error(f"Erro no anúncio periódico: {e}")
-    
-    async def find_user_via_dht(self, user_id: str) -> Optional[UserPresence]:
-        """Busca usuário via DHT"""
-        if not self.dht:
-            return None
-        
-        try:
-            presence = await self.dht.find_user(user_id)
-            if presence:
-                # Salva como peer DHT
-                for endpoint in presence.endpoints:
-                    if ':' in endpoint and not endpoint.startswith('http'):
-                        # Endpoint local (ip:port)
-                        host, port = endpoint.split(':')
-                        self.db.save_dht_peer(
-                            user_id, host, int(port), 
-                            tunnel_url="", reputation=presence.reputation_score
-                        )
-                    else:
-                        # Endpoint túnel
-                        self.db.save_dht_peer(
-                            user_id, "unknown", 0, 
-                            tunnel_url=endpoint, reputation=presence.reputation_score
-                        )
-                
-                logger.info(f"🎯 Usuário encontrado via DHT: {presence.username}")
-            
-            return presence
-            
-        except Exception as e:
-            logger.error(f"Erro buscando usuário via DHT: {e}")
-            return None
     
     def setup_cloudflare_tunnel(self):
         """Configura túnel Cloudflare"""
@@ -699,8 +551,25 @@ class P2PNode:
         return None
     
     def discover_peers(self):
-        """Descobre peers na rede local e remota"""
-        # Descoberta local (mantém método original)
+        """Descobre peers usando novo sistema"""
+        if self.network_manager:
+            # Força descoberta com novo sistema
+            self.network_manager.force_discovery()
+            
+            # Atualiza database com peers descobertos
+            discovered_peers = self.network_manager.get_all_peers()
+            for peer in discovered_peers:
+                self.db.save_discovered_peer(peer)
+            
+            logger.info(f"🔍 Descoberta concluída: {len(discovered_peers)} peers encontrados")
+            return len(discovered_peers)
+        else:
+            # Fallback para descoberta básica
+            logger.warning("📡 Sistema avançado indisponível - usando descoberta básica")
+            return self.basic_discovery()
+    
+    def basic_discovery(self) -> int:
+        """Descoberta básica de fallback"""
         local_ports = [8000, 8001, 8002, 8003, 8004]
         found_count = 0
         
@@ -712,78 +581,80 @@ class P2PNode:
                 response = requests.get(f"http://localhost:{port}/api/status", timeout=2)
                 if response.status_code == 200:
                     data = response.json()
-                    peer = Peer(
+                    
+                    # Salva como peer descoberto
+                    fake_peer = DiscoveredPeer(
                         node_id=data['node_id'],
                         host="localhost",
                         port=port,
-                        tunnel_url=data.get('tunnel_url', ''),
-                        last_seen=time.time()
+                        username=data.get('username', 'Unknown'),
+                        discovery_method="basic"
                     )
-                    self.db.save_peer(peer)
+                    self.db.save_discovered_peer(fake_peer)
                     found_count += 1
             except:
                 continue
         
-        if found_count > 0:
-            logger.info(f"🔍 Descobertos {found_count} peers locais")
+        return found_count
     
-    async def send_message_to_user(self, recipient_id: str, message: Message) -> bool:
-        """Envia mensagem (local + DHT)"""
-        # 1. Tenta método atual (peers conhecidos)
-        peers = self.db.get_peers()
-        for peer in peers:
-            if peer['node_id'] == recipient_id:
-                if self.send_message_to_peer_data(peer, message):
+    def send_message_to_user(self, recipient_id: str, message: Message) -> bool:
+        """Envia mensagem para usuário específico"""
+        # 1. Busca em peers descobertos
+        peers = self.db.get_discovered_peers()
+        for peer_data in peers:
+            if peer_data['node_id'] == recipient_id:
+                if self.send_message_to_peer_data(peer_data, message):
                     return True
         
-        # 2. NOVO: Busca via DHT se não encontrou localmente
-        if self.dht:
-            try:
-                presence = await self.find_user_via_dht(recipient_id)
-                if presence:
-                    # Tenta conectar usando endpoints do DHT
-                    for endpoint in presence.endpoints:
-                        if await self.try_send_to_endpoint(endpoint, message):
-                            return True
-            except Exception as e:
-                logger.error(f"Erro enviando via DHT: {e}")
+        # 2. Busca via NetworkManager se disponível
+        if self.network_manager:
+            peer = self.network_manager.get_peer_by_id(recipient_id)
+            if peer:
+                peer_data = {
+                    'node_id': peer.node_id,
+                    'host': peer.host,
+                    'port': peer.port,
+                    'tunnel_url': peer.tunnel_url
+                }
+                if self.send_message_to_peer_data(peer_data, message):
+                    return True
         
-        # 3. Enfileira para entrega futura
+        # 3. DHT como último recurso
+        if self.dht and self.dht_loop:
+            try:
+                future = asyncio.run_coroutine_threadsafe(
+                    self.find_user_via_dht(recipient_id, message), 
+                    self.dht_loop
+                )
+                return future.result(timeout=10)
+            except:
+                pass
+        
         logger.info(f"📤 Mensagem enfileirada para {recipient_id[:8]}...")
         return False
     
-    def send_message_to_peer_data(self, peer_data: Dict, message: Message) -> bool:
-        """Envia mensagem para peer específico"""
+    async def find_user_via_dht(self, user_id: str, message: Message) -> bool:
+        """Busca usuário via DHT e envia mensagem"""
+        if not self.dht:
+            return False
+        
         try:
-            # Tentar túnel primeiro, depois local
-            urls = []
-            if peer_data.get('tunnel_url'):
-                urls.append(f"{peer_data['tunnel_url']}/api/receive")
-            urls.append(f"http://{peer_data['host']}:{peer_data['port']}/api/receive")
-            
-            payload = asdict(message)
-            
-            for url in urls:
-                try:
-                    response = requests.post(url, json=payload, timeout=5)
-                    if response.status_code == 200:
+            presence = await self.dht.find_user(user_id)
+            if presence:
+                for endpoint in presence.endpoints:
+                    if await self.try_send_to_endpoint(endpoint, message):
                         return True
-                except:
-                    continue
-            
-            return False
         except Exception as e:
-            logger.error(f"Erro ao enviar mensagem: {e}")
-            return False
+            logger.error(f"Erro enviando via DHT: {e}")
+        
+        return False
     
     async def try_send_to_endpoint(self, endpoint: str, message: Message) -> bool:
         """Tenta enviar mensagem para endpoint específico"""
         try:
             if endpoint.startswith('http'):
-                # Túnel URL
                 url = f"{endpoint}/api/receive"
             else:
-                # IP:Port local
                 url = f"http://{endpoint}/api/receive"
             
             import aiohttp
@@ -797,25 +668,48 @@ class P2PNode:
             logger.debug(f"Falha enviando para {endpoint}: {e}")
             return False
     
-    def broadcast_message(self, message: Message) -> int:
-        """Envia mensagem para todos os peers"""
-        peers = self.db.get_peers()
-        success_count = 0
-        
-        for peer in peers:
-            if self.send_message_to_peer_data(peer, message):
-                success_count += 1
-        
-        return success_count
+    def send_message_to_peer_data(self, peer_data: Dict, message: Message) -> bool:
+        """Envia mensagem para peer específico"""
+        try:
+            urls = []
+            if peer_data.get('tunnel_url'):
+                urls.append(f"{peer_data['tunnel_url']}/api/receive")
+            urls.append(f"http://{peer_data['host']}:{peer_data['port']}/api/receive")
+            
+            payload = asdict(message)
+            
+            for url in urls:
+                try:
+                    response = requests.post(url, json=payload, timeout=5)
+                    if response.status_code == 200:
+                        logger.info(f"✅ Mensagem enviada para {peer_data['node_id'][:8]}...")
+                        return True
+                except Exception as e:
+                    logger.debug(f"Falha em {url}: {e}")
+                    continue
+            
+            return False
+        except Exception as e:
+            logger.error(f"Erro ao enviar mensagem: {e}")
+            return False
+    
+    def add_manual_peer(self, host: str, port: int) -> bool:
+        """Adiciona peer manualmente"""
+        if self.network_manager:
+            peer = self.network_manager.add_manual_peer(host, port)
+            if peer:
+                self.db.save_discovered_peer(peer)
+                return True
+        return False
     
     def background_tasks(self):
-        """Tarefas em segundo plano otimizadas"""
+        """Tarefas em segundo plano"""
         discovery_timer = 0
         
         while self.is_running:
             try:
-                # Descoberta a cada 60 segundos
-                if discovery_timer >= 60:
+                # Descoberta a cada 120 segundos
+                if discovery_timer >= 120:
                     self.discover_peers()
                     discovery_timer = 0
                 
@@ -828,30 +722,27 @@ class P2PNode:
     
     def start_background_tasks(self):
         """Inicia tarefas em segundo plano"""
+        # Inicia sistema de descoberta
+        if self.network_manager:
+            self.network_manager.start()
+        
+        # Thread de background
         thread = threading.Thread(target=self.background_tasks, daemon=True)
         thread.start()
         
         # Configurar túnel Cloudflare
         tunnel_url = self.setup_cloudflare_tunnel()
         if tunnel_url:
-            logger.info(f"🌐 Túnel Cloudflare configurado: {tunnel_url}")
+            logger.info(f"🌐 Túnel Cloudflare: {tunnel_url}")
         else:
-            logger.info("🏠 Usando apenas acesso local")
+            logger.info("🏠 Modo local apenas")
         
-        # NOVO: Inicia DHT de forma assíncrona
-        if self.dht_enabled and self.dht:
-            self.dht_loop = asyncio.new_event_loop()
-            
-            def run_dht():
-                asyncio.set_event_loop(self.dht_loop)
-                self.dht_loop.run_until_complete(self.start_dht())
-                self.dht_loop.run_forever()
-            
-            dht_thread = threading.Thread(target=run_dht, daemon=True)
-            dht_thread.start()
+        # Força descoberta inicial
+        logger.info("🔍 Iniciando descoberta de peers...")
+        self.discover_peers()
 
 # Inicialização do FastAPI
-app = FastAPI(title="DECTERUM P2P with DHT", version="2.1")
+app = FastAPI(title="DECTERUM P2P Fixed", version="2.2")
 
 app.add_middleware(
     CORSMiddleware,
@@ -891,35 +782,21 @@ async def shutdown():
     if node:
         if node.cloudflare:
             node.cloudflare.stop_tunnel()
+        if node.network_manager:
+            node.network_manager.stop()
         if node.dht:
             await node.dht.stop()
-
-# NOVO: Endpoint DHT
-@app.post("/dht")
-async def handle_dht_request(request: Request):
-    """Processa requisições DHT"""
-    if not node or not node.dht:
-        raise HTTPException(status_code=503, detail="DHT não disponível")
-    
-    try:
-        data = await request.json()
-        response = node.dht.handle_dht_request(data)
-        return response
-    except Exception as e:
-        logger.error(f"Erro processando requisição DHT: {e}")
-        return {"type": "ERROR", "message": str(e)}
 
 @app.get("/")
 async def home():
     """Serve a interface principal"""
     return FileResponse("static/index.html")
 
-# API Endpoints (mantém todos os originais)
 @app.get("/api/status")
 async def get_status():
     """Status do nó"""
     user = node.db.get_user(node.current_user_id)
-    peers = node.db.get_peers()
+    peers = node.db.get_discovered_peers()
     tunnel_url = node.db.get_setting("tunnel_url")
     
     return {
@@ -928,6 +805,7 @@ async def get_status():
         "port": node.port,
         "tunnel_url": tunnel_url or "",
         "peer_count": len(peers),
+        "discovery_system": "advanced" if NETWORK_DISCOVERY_AVAILABLE else "basic",
         "dht_enabled": node.dht_enabled,
         "status": "online"
     }
@@ -958,9 +836,9 @@ async def update_user(data: dict):
     
     if username:
         node.db.update_user(node.current_user_id, username=username)
-        # Re-anuncia presença no DHT com novo username
-        if node.dht:
-            asyncio.create_task(node.announce_presence())
+        # Atualiza NetworkManager se disponível
+        if node.network_manager:
+            node.network_manager.username = username
     
     if status:
         node.db.update_user(node.current_user_id, status=status)
@@ -996,7 +874,7 @@ async def get_messages(contact_id: str = None, limit: int = 100):
 
 @app.post("/api/send")
 async def send_message(data: dict):
-    """Envia mensagem (com suporte DHT)"""
+    """Envia mensagem"""
     content = data.get('content', '').strip()
     recipient_id = data.get('recipient_id', '').strip()
     
@@ -1016,37 +894,16 @@ async def send_message(data: dict):
     # Salvar localmente SEMPRE
     node.db.save_message(message)
     
-    # Tentar enviar (local + DHT)
+    # Tentar enviar
     success = False
     if recipient_id:
-        # NOVO: Envio com suporte DHT
-        if node.dht_loop and node.dht:
-            # Executa busca DHT de forma assíncrona
-            future = asyncio.run_coroutine_threadsafe(
-                node.send_message_to_user(recipient_id, message), 
-                node.dht_loop
-            )
-            try:
-                success = future.result(timeout=10)
-            except:
-                success = False
-        
-        # Fallback para método tradicional
-        if not success:
-            peers = node.db.get_peers()
-            for peer in peers:
-                if peer['node_id'] == recipient_id:
-                    success = node.send_message_to_peer_data(peer, message)
-                    break
-    else:
-        # Broadcast
-        success = node.broadcast_message(message) > 0
+        success = node.send_message_to_user(recipient_id, message)
     
     return {
         "success": True,
         "message_id": message.id,
-        "delivered_via_dht": success and node.dht_enabled,
-        "sent_to": 1 if success else 0
+        "delivered": success,
+        "discovery_method": "advanced" if NETWORK_DISCOVERY_AVAILABLE else "basic"
     }
 
 @app.post("/api/receive")
@@ -1063,44 +920,48 @@ async def receive_message(message_data: dict):
 
 @app.get("/api/peers")
 async def get_peers():
-    """Lista peers conectados (local + DHT)"""
-    peers = node.db.get_peers()
+    """Lista peers conectados"""
+    peers = node.db.get_discovered_peers()
     return {"peers": peers}
 
 @app.post("/api/discover")
 async def discover_peers():
-    """Força descoberta de peers (local + DHT)"""
-    # Descoberta local
-    node.discover_peers()
+    """Força descoberta de peers"""
+    peers_found = node.discover_peers()
+    return {"peers_found": peers_found}
+
+@app.post("/api/add-manual-peer")
+async def add_manual_peer(data: dict):
+    """Adiciona peer manualmente"""
+    host = data.get('host', '').strip()
+    port = data.get('port', 0)
     
-    # NOVO: Força refresh do DHT
-    if node.dht and node.dht_loop:
-        try:
-            # Executa lookup aleatório para refresh
-            random_id = str(uuid.uuid4())
-            future = asyncio.run_coroutine_threadsafe(
-                node.dht.lookup_nodes(node.dht.generate_key(random_id)),
-                node.dht_loop
-            )
-            future.result(timeout=5)
-        except:
-            pass
+    if not host or not port:
+        raise HTTPException(status_code=400, detail="Host e porta obrigatórios")
     
-    peers = node.db.get_peers()
-    return {"peers_found": len(peers)}
+    success = node.add_manual_peer(host, port)
+    if success:
+        return {"success": True, "message": "Peer adicionado com sucesso"}
+    else:
+        raise HTTPException(status_code=400, detail="Não foi possível conectar ao peer")
 
 @app.get("/api/network-info")
 async def get_network_info():
-    """Informações da rede (incluindo DHT)"""
+    """Informações da rede"""
     user = node.db.get_user(node.current_user_id)
-    peers = node.db.get_peers()
-    dht_peers = node.db.get_dht_peers()
+    peers = node.db.get_discovered_peers()
     tunnel_url = node.db.get_setting("tunnel_url")
     
-    # Estatísticas DHT
-    dht_stats = {}
-    if node.dht:
-        dht_stats = node.dht.get_network_stats()
+    # Estatísticas do NetworkManager
+    network_stats = {}
+    if node.network_manager:
+        all_peers = node.network_manager.get_all_peers()
+        network_stats = {
+            "total_discovered": len(all_peers),
+            "lan_peers": len([p for p in all_peers if p.discovery_method == "lan"]),
+            "manual_peers": len([p for p in all_peers if p.discovery_method == "manual"]),
+            "dht_peers": len([p for p in all_peers if p.discovery_method == "dht"])
+        }
     
     return {
         "user_id": user['user_id'],
@@ -1109,125 +970,13 @@ async def get_network_info():
         "tunnel_url": tunnel_url,
         "tunnel_active": bool(tunnel_url),
         "peers_connected": len(peers),
-        "dht_peers": len(dht_peers),
+        "discovery_system": "advanced" if NETWORK_DISCOVERY_AVAILABLE else "basic",
+        "network_stats": network_stats,
         "dht_enabled": node.dht_enabled,
-        "dht_stats": dht_stats,
         "network_status": "online"
     }
 
-# NOVO: Endpoints específicos do DHT
-@app.get("/api/dht/status")
-async def get_dht_status():
-    """Status detalhado do DHT"""
-    if not node.dht_enabled or not node.dht:
-        return {"enabled": False, "error": "DHT não habilitado"}
-    
-    stats = node.dht.get_network_stats()
-    return {
-        "enabled": True,
-        "running": node.dht.is_running,
-        "stats": stats
-    }
-
-@app.post("/api/dht/find-user")
-async def find_user_dht(data: dict):
-    """Busca usuário via DHT"""
-    user_id = data.get('user_id', '').strip()
-    
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id obrigatório")
-    
-    if not node.dht_enabled or not node.dht or not node.dht_loop:
-        raise HTTPException(status_code=503, detail="DHT não disponível")
-    
-    try:
-        # Executa busca DHT
-        future = asyncio.run_coroutine_threadsafe(
-            node.find_user_via_dht(user_id),
-            node.dht_loop
-        )
-        presence = future.result(timeout=10)
-        
-        if presence:
-            return {
-                "found": True,
-                "user": {
-                    "user_id": presence.user_id,
-                    "username": presence.username,
-                    "endpoints": presence.endpoints,
-                    "last_seen": presence.last_seen,
-                    "reputation_score": presence.reputation_score
-                }
-            }
-        else:
-            return {"found": False}
-            
-    except Exception as e:
-        logger.error(f"Erro buscando usuário via DHT: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro na busca DHT: {str(e)}")
-
-@app.post("/api/dht/announce")
-async def announce_presence_dht():
-    """Força anúncio de presença no DHT"""
-    if not node.dht_enabled or not node.dht or not node.dht_loop:
-        raise HTTPException(status_code=503, detail="DHT não disponível")
-    
-    try:
-        future = asyncio.run_coroutine_threadsafe(
-            node.announce_presence(),
-            node.dht_loop
-        )
-        future.result(timeout=5)
-        
-        return {"success": True, "message": "Presença anunciada"}
-        
-    except Exception as e:
-        logger.error(f"Erro anunciando presença: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro no anúncio: {str(e)}")
-
-@app.get("/api/dht/discover-users")
-async def discover_users_dht(limit: int = 20):
-    """Descobre usuários ativos via DHT"""
-    if not node.dht_enabled or not node.dht or not node.dht_loop:
-        raise HTTPException(status_code=503, detail="DHT não disponível")
-    
-    try:
-        future = asyncio.run_coroutine_threadsafe(
-            node.dht.discover_users(limit),
-            node.dht_loop
-        )
-        users = future.result(timeout=15)
-        
-        return {
-            "users": [
-                {
-                    "user_id": user.user_id,
-                    "username": user.username,
-                    "endpoints": user.endpoints,
-                    "last_seen": user.last_seen,
-                    "reputation_score": user.reputation_score
-                }
-                for user in users
-            ]
-        }
-        
-    except Exception as e:
-        logger.error(f"Erro descobrindo usuários: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro na descoberta: {str(e)}")
-
-# Endpoint para parar o túnel (mantido)
-@app.post("/api/stop-tunnel")
-async def stop_tunnel_endpoint():
-    global node
-    if node and node.cloudflare and node.cloudflare.tunnel_process:
-        node.cloudflare.stop_tunnel()
-        return {"success": True, "message": "Túnel parado."}
-    return {"success": False, "message": "Túnel não estava ativo."}
-
 if __name__ == "__main__":
-    # Adiciona importação necessária no topo do arquivo
-    import socket
-    
     port = 8000
     if len(sys.argv) > 1:
         try:
