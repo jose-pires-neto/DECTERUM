@@ -48,18 +48,47 @@ def install_dependencies():
         
         # Instalar dependências do requirements.txt
         if os.path.exists("requirements.txt"):
-            subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"], 
-                          check=True, capture_output=True)
-            print("   ✅ Dependências do requirements.txt instaladas")
+            result = subprocess.run([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
+                          capture_output=True, text=True)
+            if result.returncode == 0:
+                print("   ✅ Dependências do requirements.txt instaladas")
+            else:
+                print(f"   ❌ Erro detalhado: {result.stderr}")
+                print("   💡 Tentando instalação individual das dependências...")
+                # Fallback para instalação individual
+                dependencies = [
+                    "fastapi>=0.110.0",
+                    "uvicorn[standard]",
+                    "requests>=2.32.0",
+                    "cryptography>=43.0.0",
+                    "python-multipart>=0.0.9",
+                    "aiohttp>=3.10.0",
+                    "psutil>=5.9.0"
+                ]
+
+                failed_deps = []
+                for dep in dependencies:
+                    try:
+                        subprocess.run([sys.executable, "-m", "pip", "install", dep],
+                                      check=True, capture_output=True)
+                        print(f"   ✅ {dep.split('>=')[0].split('==')[0]} instalado")
+                    except subprocess.CalledProcessError:
+                        failed_deps.append(dep)
+                        print(f"   ❌ Falha ao instalar {dep}")
+
+                if failed_deps:
+                    print(f"   ⚠️ Dependências que falharam: {', '.join(failed_deps)}")
+                    raise subprocess.CalledProcessError(1, "pip install")
         else:
             # Fallback para instalação manual das dependências essenciais
             dependencies = [
-                "fastapi==0.104.1",
-                "uvicorn[standard]==0.24.0", 
-                "requests==2.31.0",
-                "cryptography==41.0.7",
-                "python-multipart==0.0.6",
-                "aiohttp==3.9.1"
+                "fastapi>=0.110.0",
+                "uvicorn[standard]",
+                "requests>=2.32.0",
+                "cryptography>=43.0.0",
+                "python-multipart>=0.0.9",
+                "aiohttp>=3.10.0",
+                "psutil>=5.9.0"
             ]
             
             for dep in dependencies:

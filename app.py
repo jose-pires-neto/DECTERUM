@@ -17,6 +17,7 @@ import sys
 import asyncio
 import subprocess
 import signal
+import contextlib
 from datetime import datetime, timedelta
 from network_discovery import DiscoveredPeer
 from fastapi import FastAPI, HTTPException, Request
@@ -742,8 +743,41 @@ class P2PNode:
         logger.info("🔍 Iniciando descoberta de peers...")
         self.discover_peers()
 
+# Variável global para o nó
+node: Optional[P2PNode] = None
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    global node
+    port = 8000
+
+    # Obter porta da linha de comando
+    if "--port" in sys.argv:
+        try:
+            port_index = sys.argv.index("--port") + 1
+            port = int(sys.argv[port_index])
+        except:
+            pass
+
+    node = P2PNode(port)
+    node.start_background_tasks()
+    logger.info(f"🚀 DECTERUM rodando na porta {port}")
+
+    yield
+
+    # Shutdown
+    if node:
+        if node.cloudflare:
+            node.cloudflare.stop_tunnel()
+        if node.network_manager:
+            node.network_manager.stop()
+        if node.dht:
+            await node.dht.stop()
+        logger.info("🛑 Nó P2P finalizado")
+
 # Inicialização do FastAPI
-app = FastAPI(title="DECTERUM P2P Fixed", version="2.2")
+app = FastAPI(title="DECTERUM P2P Fixed", version="2.2", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -756,37 +790,6 @@ app.add_middleware(
 # Servir arquivos estáticos
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Variável global para o nó
-node: Optional[P2PNode] = None
-
-@app.on_event("startup")
-async def startup():
-    global node
-    port = 8000
-    
-    # Obter porta da linha de comando
-    if "--port" in sys.argv:
-        try:
-            port_index = sys.argv.index("--port") + 1
-            port = int(sys.argv[port_index])
-        except:
-            pass
-    
-    node = P2PNode(port)
-    node.start_background_tasks()
-    logger.info(f"🚀 DECTERUM rodando na porta {port}")
-
-@app.on_event("shutdown")
-async def shutdown():
-    global node
-    if node:
-        if node.cloudflare:
-            node.cloudflare.stop_tunnel()
-        if node.network_manager:
-            node.network_manager.stop()
-        if node.dht:
-            await node.dht.stop()
 
 @app.get("/")
 async def home():

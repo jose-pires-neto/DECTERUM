@@ -1,24 +1,54 @@
 # 🌐 DECTERUM - Rede Social Descentralizada
 
-Sistema P2P completo com interface tipo app móvel para chat, feed social e compartilhamento de mídia - tudo descentralizado!
+Sistema P2P completo com DHT global, descoberta automática de peers e interface tipo app móvel - totalmente descentralizado!
 
-## ⚡ Instalação Ultra-Rápida
+## ⚡ Instalação Automática (Recomendada)
 
-### 1. Clone e Instale
+### 1. Clone o Repositório
 ```bash
 git clone https://github.com/jose-pires-neto/DECTERUM.git
-cd decterum
-pip install -r requirements.txt
+cd DECTERUM
 ```
 
-### 2. Execute
+### 2. Instalação Automática
+```bash
+python install.py
+```
+O script detecta seu sistema e instala tudo automaticamente com dependências compatíveis.
+
+### 3. Instalação Manual (se necessário)
+```bash
+pip install fastapi>=0.110.0 uvicorn[standard] requests>=2.32.0 cryptography>=43.0.0 python-multipart>=0.0.9 aiohttp>=3.10.0 psutil>=5.9.0
+```
+
+### 4. Execute
 ```bash
 python app.py
 ```
 
-### 3. Acesse
-**Local:** http://localhost:8000  
+### 5. Acesse
+**Local:** http://localhost:8000
 **Mobile:** Configure o túnel Cloudflare (veja abaixo)
+
+## 🔧 Solução de Problemas
+
+### Erro na Instalação
+Se `python install.py` falhar:
+1. **Python 3.13**: Use versões compatíveis (instalação automática resolve)
+2. **Dependências**: Execute `pip install --upgrade pip` primeiro
+3. **Compilação**: Windows pode precisar do Visual Studio Build Tools
+
+### Cloudflare Tunnel Não Encontrado
+```bash
+# Instalação automática do cloudflared
+python setup_cloudflare_auto.py
+```
+
+### Versões Testadas
+- ✅ Python 3.8 - 3.13
+- ✅ Windows 10/11
+- ✅ Linux Ubuntu/Debian
+- ✅ macOS (Intel e Apple Silicon)
 
 ## 🎨 Nova Interface App-Style
 
@@ -40,6 +70,9 @@ A interface foi completamente redesenhada para parecer um app móvel moderno:
 
 ### Método 1: Script Automático (Recomendado)
 ```bash
+# Instalar e configurar cloudflared automaticamente
+python setup_cloudflare_auto.py
+
 # Configurar túnel automaticamente
 python setup_cloudflare.py
 
@@ -168,19 +201,26 @@ Acesse:
 - Verificação de identidade
 - Moderação descentralizada
 
-## 🛠️ Estrutura Simplificada
+## 🛠️ Estrutura do Projeto
 
 ```
 DECTERUM/
-├── app.py                    # Backend completo otimizado
+├── app.py                       # Backend principal com DHT e P2P
+├── dht_manager.py              # Sistema DHT Kademlia global
+├── network_discovery.py       # Descoberta automática LAN
 ├── static/
-│   └── index.html           # Interface app-style responsiva  
-├── setup_cloudflare.py     # Configuração automática do túnel
-├── install.py               # Instalação automática
-├── requirements.txt         # Dependências mínimas
-├── .gitignore              # Arquivos a ignorar
-├── README.md               # Este guia
-└── decterum.db             # Database local (auto-criado)
+│   ├── index.html             # Interface app-style responsiva
+│   ├── styles.css             # Estilos modernos
+│   └── script.js              # Lógica frontend
+├── install.py                  # Instalação automática robusta
+├── setup_cloudflare.py        # Configuração túnel Cloudflare
+├── setup_cloudflare_auto.py   # Instalação automática cloudflared
+├── requirements.txt            # Dependências compatíveis
+├── .gitignore                 # Controle de arquivos
+├── README.md                  # Documentação completa
+├── data/                      # Dados de usuários (auto-criado)
+├── logs/                      # Logs do sistema (auto-criado)
+└── decterum.db               # Database SQLite (auto-criado)
 ```
 
 ## 💡 Dicas de Uso
@@ -264,8 +304,23 @@ DECTERUM/
 
 ### 🔥 Comece Agora
 ```bash
-git clone <repository>
-cd decterum
+git clone https://github.com/jose-pires-neto/DECTERUM.git
+cd DECTERUM
 python install.py
 ```
 E pronto! Sua rede descentralizada está funcionando! 🎉
+
+## 📋 Changelog
+
+### v2.3 (Atual)
+- ✅ **Compatibilidade Universal**: Python 3.8-3.13
+- ✅ **Instalação Robusta**: Script install.py melhorado
+- ✅ **FastAPI Moderno**: Migrado para lifespan (sem warnings)
+- ✅ **Cloudflared Auto**: Instalação automática de túneis
+- ✅ **Dependências Atualizadas**: Versões compatíveis com Python 3.13
+
+### v2.2 (Anterior)
+- ✅ Interface app-style mobile-first
+- ✅ DHT global funcional
+- ✅ Descoberta automática LAN/WAN
+- ✅ Sistema P2P robusto

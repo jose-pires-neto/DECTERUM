@@ -1,4 +1,8 @@
-# Python
+# =====================================
+# DECTERUM - Arquivos para IGNORAR no Git
+# =====================================
+
+# Python Runtime
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,49 +23,170 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Virtual Environment
+# Virtual Environments
 venv/
 env/
 ENV/
 env.bak/
 venv.bak/
+.venv/
 
-# Database files (dados locais do usuário)
+# =====================================
+# DADOS LOCAIS DO USUÁRIO (Não committar)
+# =====================================
+
+# Database SQLite (dados pessoais)
 *.db
 *.sqlite
 *.sqlite3
 decterum.db*
 
-# Logs
+# Dados locais de usuários
+data/
+users/
+profiles/
+
+# Logs do sistema
 *.log
 logs/
-data/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# =====================================
+# CLOUDFLARE & TUNNEL (Dados pessoais)
+# =====================================
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Cloudflare
+# Configurações do Cloudflare
 .cloudflared/
-*.json
+cloudflared.exe
+cloudflared
+tunnel.json
+tunnel_*.json
 
-# Environment variables
-.env
-.env.local
+# Certificados e credenciais
+*.pem
+*.key
+*.crt
+certificates/
 
-# Temporary files
+# =====================================
+# ARQUIVOS TEMPORÁRIOS
+# =====================================
+
+# Cache e temp
 temp/
 cache/
 tmp/
+.cache/
 
-# User uploads
+# Downloads e uploads de usuários
 uploads/
 media/
+files/
+attachments/
+
+# =====================================
+# AMBIENTE E CONFIGURAÇÃO
+# =====================================
+
+# Environment variables (podem conter secrets)
+.env
+.env.local
+.env.production
+.env.development
+
+# Configurações específicas do usuário
+config.json
+settings.json
+user_config.json
+
+# =====================================
+# IDEs e EDITORES
+# =====================================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+
+# Vim/Emacs
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# =====================================
+# SISTEMA OPERACIONAL
+# =====================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+
+# Linux
+.directory
+.Trash-*
+
+# =====================================
+# BACKUP e VERSIONING
+# =====================================
+
+# Backups automáticos
+*.bak
+*.backup
+*.old
+*~
+
+# Patches
+*.orig
+*.rej
+
+# =====================================
+# APENAS INCLUIR NO REPOSITÓRIO:
+# =====================================
+# ✅ app.py
+# ✅ dht_manager.py
+# ✅ network_discovery.py
+# ✅ install.py
+# ✅ setup_cloudflare.py
+# ✅ setup_cloudflare_auto.py
+# ✅ requirements.txt
+# ✅ static/ (HTML, CSS, JS)
+# ✅ README.md
+# ✅ .gitignore
+# ✅ LICENSE (se houver)
+
+# =====================================
+# SCRIPTS GERADOS AUTOMATICAMENTE
+# =====================================
+
+# Scripts de inicialização (gerados pelo install.py)
+start.bat
+start.sh
+start_local.bat
+start_local.sh
+
+# Arquivos da Claude IDE
+.claude/
+
+# Scripts de correção específicos (não necessários no repo)
+fix_*.py
+
+# IMPORTANTE: Este .gitignore garante que apenas
+# o código fonte seja commitado, mantendo dados
+# pessoais e configurações locais privadas.
