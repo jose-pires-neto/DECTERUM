@@ -343,6 +343,11 @@ function switchSection(sectionName) {
         loadFeedModule();
     }
 
+    // Load videos module when switching to videos section
+    if (sectionName === 'videos') {
+        loadVideosModule();
+    }
+
     activeSection = sectionName;
 }
 
@@ -384,6 +389,59 @@ async function loadFeedModule() {
                 <p>Tente recarregar a página</p>
             </div>
         `;
+    }
+}
+
+// Carrega módulo de vídeos
+async function loadVideosModule() {
+    try {
+        const videosSection = document.getElementById('videos-section');
+
+        // Verifica se o conteúdo HTML já está presente
+        const hasVideoContent = videosSection.querySelector('.videos-section');
+
+        if (hasVideoContent) {
+            console.log('📹 Video module HTML already present, initializing...');
+            // Se o HTML já está presente, usa a função global de inicialização
+            if (window.initializeVideoModule) {
+                window.initializeVideoModule();
+            } else if (window.VideoModule && !window.videoModuleInitialized) {
+                try {
+                    window.VideoModule.init();
+                    window.videoModuleInitialized = true;
+                    console.log('✅ VideoModule re-initialized successfully');
+                } catch (error) {
+                    console.error('❌ Error re-initializing VideoModule:', error);
+                }
+            }
+            return;
+        }
+
+        // Se o módulo já foi carregado dinamicamente, apenas inicializa
+        if (window.DECTERUM.ModuleLoader && window.DECTERUM.ModuleLoader.isModuleLoaded('videos')) {
+            if (window.VideoModule) {
+                // Reinicializa se necessário
+                return;
+            }
+        }
+
+        // Carrega o módulo completo dinamicamente apenas se não há conteúdo
+        if (window.DECTERUM.ModuleLoader) {
+            await window.DECTERUM.ModuleLoader.loadModule('videos', videosSection);
+        }
+    } catch (error) {
+        console.error('Erro carregando módulo de vídeos:', error);
+        // Só sobrescreve se realmente houve erro e não há conteúdo
+        const videosSection = document.getElementById('videos-section');
+        if (!videosSection.querySelector('.videos-section')) {
+            videosSection.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">⚠️</div>
+                    <h3>Erro ao carregar vídeos</h3>
+                    <p>Tente recarregar a página</p>
+                </div>
+            `;
+        }
     }
 }
 

@@ -12,6 +12,7 @@ from ..modules.chat.service import ChatService
 from ..modules.chat.routes import setup_chat_routes
 from ..modules.feed.service import FeedService
 from ..modules.feed.routes import setup_feed_routes
+from ..modules.video.routes import router as video_router
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ def create_app(port: int = 8000) -> FastAPI:
 
     app.include_router(chat_router)
     app.include_router(feed_router)
+    app.include_router(video_router)
 
     # Rotas estáticas
     app.mount("/static", StaticFiles(directory="static"), name="static")

@@ -26,12 +26,22 @@ window.DECTERUM.ModuleLoader = (function() {
             await loadJS(`/static/js/modules/${moduleName}.js`);
 
             // Carrega HTML e injeta no container
-            await loadHTML(`/static/modules/${moduleName}/${moduleName}.html`, container);
+            await loadHTML(`/static/html/modules/${moduleName}.html`, container);
 
             // Inicializa o módulo se tiver função init
-            if (window.DECTERUM[capitalize(moduleName)] &&
-                typeof window.DECTERUM[capitalize(moduleName)].init === 'function') {
-                window.DECTERUM[capitalize(moduleName)].init();
+            let moduleObj = window.DECTERUM[capitalize(moduleName)];
+
+            // Para módulos que não estão no namespace DECTERUM
+            if (!moduleObj) {
+                if (moduleName === 'videos') {
+                    moduleObj = window.VideoModule;
+                } else {
+                    moduleObj = window[capitalize(moduleName) + 'Module'];
+                }
+            }
+
+            if (moduleObj && typeof moduleObj.init === 'function') {
+                moduleObj.init();
             }
 
             modules.set(moduleName, { loaded: true, container });
@@ -166,7 +176,7 @@ window.DECTERUM.ModuleLoader = (function() {
      * Precarrega módulos críticos
      */
     async function preloadCriticalModules() {
-        const criticalModules = ['feed']; // Lista de módulos críticos
+        const criticalModules = ['feed', 'videos']; // Lista de módulos críticos
 
         for (const moduleName of criticalModules) {
             try {

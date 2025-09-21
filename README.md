@@ -55,9 +55,9 @@ python setup_cloudflare_auto.py
 A interface foi completamente redesenhada para parecer um app móvel moderno:
 
 ### 📱 Menu Inferior Flutuante
-- **💬 Chat**: Conversas e mensagens
-- **🐦 Feed**: Rede social (em desenvolvimento)  
-- **🎥 Vídeos**: Compartilhamento de mídia (em desenvolvimento)
+- **💬 Chat**: Conversas e mensagens P2P
+- **🐦 Feed**: Rede social descentralizada ✅ IMPLEMENTADO
+- **🎥 Vídeos**: Compartilhamento de mídia ✅ IMPLEMENTADO
 - **⚙️ Config**: Configurações e informações da rede
 
 ### 🔥 Funcionalidades do Chat
@@ -65,6 +65,23 @@ A interface foi completamente redesenhada para parecer um app móvel moderno:
 - **Mensagens em tempo real** com interface moderna
 - **Adicionar contatos** por ID de usuário
 - **Design responsivo** otimizado para mobile e desktop
+
+### 🐦 Funcionalidades do Feed
+- **Posts em tempo real** com sistema de timeline
+- **Curtidas e comentários** descentralizados
+- **Hashtags** para descoberta de conteúdo
+- **Interface estilo Instagram/Twitter**
+- **Criação de posts** com texto e emojis
+
+### 🎥 Funcionalidades de Vídeos
+- **Upload de vídeos** até 10GB
+- **Shorts** (≤60s) e vídeos longos (até 10h)
+- **Player integrado** com controles completos
+- **Sistema de likes/dislikes** e comentários
+- **Trending** e busca avançada
+- **Playlists personalizadas**
+- **Analytics** para criadores de conteúdo
+- **Interface estilo YouTube** responsiva
 
 ## 🌍 Acesso Externo (Cloudflare Tunnel)
 
@@ -176,25 +193,31 @@ Acesse:
 - ✅ **Interface App-Style**: Design moderno tipo aplicativo móvel
 - ✅ **Chat P2P**: Mensagens criptografadas em tempo real
 - ✅ **Sistema de Contatos**: Adicione usuários por ID único
+- ✅ **Feed Social**: Posts, curtidas e comentários descentralizados
+- ✅ **Vídeos P2P**: Upload, streaming e interação com vídeos
+- ✅ **Sistema Modular**: Arquitetura escalável por módulos
 - ✅ **100% Responsivo**: Funciona perfeitamente em todos os dispositivos
 - ✅ **Menu Inferior Flutuante**: Navegação intuitiva entre seções
 - ✅ **Cloudflare Tunnel**: Acesso externo automático
-- ✅ **Persistência**: Mensagens salvas até entrega
+- ✅ **Persistência**: Dados salvos localmente no SQLite
 - ✅ **Descoberta Automática**: Encontra outros nós na rede
 
 ## 🚀 Recursos em Desenvolvimento
 
-### 🐦 Feed Social (Próxima Atualização)
-- Posts e timeline descentralizados
-- Curtidas e comentários P2P
-- Hashtags e descoberta de conteúdo
-- Sistema de seguir/seguidor
+### 🔗 Integração P2P Avançada
+- Compartilhamento direto de arquivos grandes
+- Streaming de vídeos otimizado
+- Cache distribuído de conteúdo
+- Sincronização offline
 
-### 🎥 Vídeos Descentralizados  
-- Upload e compartilhamento P2P
-- Streaming descentralizado
-- Sistema de likes/dislikes
-- Comentários por vídeo
+### 🎥 Vídeos Descentralizados ✅ IMPLEMENTADO
+- ✅ Upload e compartilhamento P2P
+- ✅ Interface estilo YouTube/TikTok
+- ✅ Sistema de likes/dislikes
+- ✅ Comentários por vídeo
+- ✅ Shorts (vídeos curtos ≤60s)
+- ✅ Trending e busca de vídeos
+- ✅ Playlists e analytics
 
 ### 🔐 Melhorias de Segurança
 - Chaves de criptografia por usuário
@@ -205,22 +228,54 @@ Acesse:
 
 ```
 DECTERUM/
-├── app.py                       # Backend principal com DHT e P2P
-├── dht_manager.py              # Sistema DHT Kademlia global
-├── network_discovery.py       # Descoberta automática LAN
-├── static/
-│   ├── index.html             # Interface app-style responsiva
-│   ├── styles.css             # Estilos modernos
-│   └── script.js              # Lógica frontend
-├── install.py                  # Instalação automática robusta
-├── setup_cloudflare.py        # Configuração túnel Cloudflare
-├── setup_cloudflare_auto.py   # Instalação automática cloudflared
-├── requirements.txt            # Dependências compatíveis
-├── .gitignore                 # Controle de arquivos
-├── README.md                  # Documentação completa
-├── data/                      # Dados de usuários (auto-criado)
-├── logs/                      # Logs do sistema (auto-criado)
-└── decterum.db               # Database SQLite (auto-criado)
+├── app.py                           # Backend principal (legacy)
+├── src/                            # Código modularizado
+│   ├── api/
+│   │   └── main.py                # API principal FastAPI
+│   ├── core/
+│   │   ├── database.py            # Sistema de banco de dados
+│   │   └── node.py                # Nó P2P
+│   ├── modules/                   # Módulos funcionais
+│   │   ├── chat/                  # Sistema de chat
+│   │   │   ├── models.py         # Modelos de dados
+│   │   │   ├── routes.py         # Endpoints da API
+│   │   │   └── service.py        # Lógica de negócio
+│   │   ├── feed/                  # Rede social
+│   │   │   ├── models.py         # Posts, likes, comentários
+│   │   │   ├── routes.py         # API do feed
+│   │   │   └── service.py        # Lógica do feed
+│   │   └── video/                 # Sistema de vídeos
+│   │       ├── models.py         # Vídeos, playlists, analytics
+│   │       ├── routes.py         # API de vídeos
+│   │       └── service.py        # Lógica de vídeos
+│   └── network/                   # Infraestrutura de rede
+│       ├── cloudflare.py         # Túneis Cloudflare
+│       ├── dht.py                # DHT Kademlia
+│       └── discovery.py          # Descoberta de peers
+├── static/                        # Interface web
+│   ├── index.html                # Interface principal
+│   ├── styles.css                # Estilos globais
+│   ├── script.js                 # JavaScript principal
+│   ├── js/
+│   │   ├── module-loader.js      # Sistema de carregamento modular
+│   │   └── modules/              # Módulos frontend
+│   │       ├── feed.js           # JavaScript do feed
+│   │       ├── videos.js         # JavaScript dos vídeos
+│   │       └── video-demo-data.js # Dados de demonstração
+│   ├── css/modules/              # CSS modular
+│   │   ├── feed.css             # Estilos do feed
+│   │   └── videos.css           # Estilos dos vídeos
+│   └── html/modules/             # HTML modular
+│       ├── feed.html            # Interface do feed
+│       └── videos.html          # Interface dos vídeos
+├── install.py                    # Instalação automática
+├── setup_cloudflare.py         # Configuração túnel
+├── setup_cloudflare_auto.py    # Instalação cloudflared
+├── requirements.txt             # Dependências
+├── README.md                    # Esta documentação
+├── data/                        # Dados de usuários (auto-criado)
+├── logs/                        # Logs do sistema (auto-criado)
+└── decterum.db                 # Database SQLite (auto-criado)
 ```
 
 ## 💡 Dicas de Uso
@@ -280,9 +335,11 @@ DECTERUM/
 
 ### Q1 2025
 - ✅ Chat P2P funcional
-- ✅ Interface mobile-first  
+- ✅ Interface mobile-first
 - ✅ Cloudflare Tunnel
-- 🔄 Feed social básico
+- ✅ Feed social completo
+- ✅ Sistema de vídeos P2P
+- ✅ Arquitetura modular
 
 ### Q2 2025
 - 🔄 Sistema de arquivos P2P
@@ -312,7 +369,15 @@ E pronto! Sua rede descentralizada está funcionando! 🎉
 
 ## 📋 Changelog
 
-### v2.3 (Atual)
+### v3.0 (Atual)
+- ✅ **Sistema Modular**: Arquitetura completamente modularizada
+- ✅ **Feed Social**: Posts, curtidas e comentários P2P
+- ✅ **Vídeos P2P**: Sistema completo de vídeos estilo YouTube
+- ✅ **Interface Modular**: Frontend carregado dinamicamente
+- ✅ **API RESTful**: Endpoints organizados por módulos
+- ✅ **Banco Modular**: Estrutura de dados escalável
+
+### v2.3 (Anterior)
 - ✅ **Compatibilidade Universal**: Python 3.8-3.13
 - ✅ **Instalação Robusta**: Script install.py melhorado
 - ✅ **FastAPI Moderno**: Migrado para lifespan (sem warnings)

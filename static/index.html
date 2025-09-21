@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="stylesheet" href="/static/css/modules/feed.css">
+    <link rel="stylesheet" href="/static/css/modules/videos.css">
 </head>
 <body>
     <div class="app">
@@ -85,11 +86,325 @@
 
             <!-- Videos Section -->
             <div class="section" id="videos-section">
-                <div class="coming-soon">
-                    <div class="coming-soon-icon">🎬</div>
-                    <h2>Videos</h2>
-                    <p>Coming soon: Decentralized video sharing and streaming</p>
-                </div>
+                <!-- ========== VIDEO MODULE HTML - YOUTUBE STYLE ========== -->
+
+                <!-- Video Section -->
+                <section class="videos-section">
+
+                    <!-- Video Header -->
+                    <div class="videos-header">
+                        <div class="videos-header-content">
+                            <h1 class="videos-title">DECTERUM Videos</h1>
+                            <div class="videos-controls">
+                                <button class="video-view-btn active" data-view="home">
+                                    <span class="icon">🏠</span>
+                                    <span>Início</span>
+                                </button>
+                                <button class="video-view-btn" data-view="shorts">
+                                    <span class="icon">📱</span>
+                                    <span>Shorts</span>
+                                </button>
+                                <button class="video-view-btn" data-view="trending">
+                                    <span class="icon">🔥</span>
+                                    <span>Em Alta</span>
+                                </button>
+                                <button class="video-view-btn" data-view="upload">
+                                    <span class="icon">📤</span>
+                                    <span>Upload</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search Bar -->
+                    <div class="video-search-bar">
+                        <input type="text" id="video-search-input" placeholder="Buscar vídeos..." />
+                        <button id="video-search-btn" class="search-btn">
+                            <span class="icon">🔍</span>
+                        </button>
+                        <div class="search-filters">
+                            <select id="video-type-filter">
+                                <option value="">Todos os tipos</option>
+                                <option value="short">Shorts</option>
+                                <option value="long">Vídeos longos</option>
+                            </select>
+                            <select id="video-category-filter">
+                                <option value="">Todas as categorias</option>
+                                <option value="gaming">Gaming</option>
+                                <option value="music">Música</option>
+                                <option value="education">Educação</option>
+                                <option value="entertainment">Entretenimento</option>
+                                <option value="news">Notícias</option>
+                                <option value="sports">Esportes</option>
+                                <option value="technology">Tecnologia</option>
+                                <option value="lifestyle">Estilo de Vida</option>
+                                <option value="comedy">Comédia</option>
+                                <option value="tutorial">Tutorial</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Video Views Container -->
+                    <div class="video-views-container">
+
+                        <!-- Home View -->
+                        <div id="home-view" class="video-view active">
+                            <div class="video-grid">
+                                <!-- Videos will be populated here -->
+                            </div>
+                            <div class="load-more-container">
+                                <button id="load-more-videos" class="load-more-btn">
+                                    Carregar mais vídeos
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Shorts View -->
+                        <div id="shorts-view" class="video-view">
+                            <div class="shorts-container">
+                                <div class="shorts-player">
+                                    <!-- Shorts player will be here -->
+                                    <div class="shorts-loading">
+                                        <div class="loading-spinner"></div>
+                                        <p>Carregando shorts...</p>
+                                    </div>
+                                </div>
+                                <div class="shorts-controls">
+                                    <button class="shorts-nav-btn" id="shorts-prev">⬆️</button>
+                                    <button class="shorts-nav-btn" id="shorts-next">⬇️</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Trending View -->
+                        <div id="trending-view" class="video-view">
+                            <div class="trending-header">
+                                <h2>Vídeos em Alta</h2>
+                                <div class="trending-filters">
+                                    <button class="trending-filter-btn active" data-filter="">Todos</button>
+                                    <button class="trending-filter-btn" data-filter="short">Shorts</button>
+                                    <button class="trending-filter-btn" data-filter="long">Vídeos</button>
+                                </div>
+                            </div>
+                            <div class="trending-grid">
+                                <!-- Trending videos will be populated here -->
+                            </div>
+                        </div>
+
+                        <!-- Upload View -->
+                        <div id="upload-view" class="video-view">
+                            <div class="upload-container">
+                                <div class="upload-header">
+                                    <h2>Enviar Vídeo</h2>
+                                    <p class="upload-subtitle">Compartilhe seu conteúdo com a rede DECTERUM</p>
+                                </div>
+
+                                <form id="video-upload-form" class="upload-form">
+                                    <!-- File Upload Area -->
+                                    <div class="upload-area" id="video-upload-area">
+                                        <div class="upload-icon">📁</div>
+                                        <p class="upload-text">Arraste um vídeo aqui ou clique para selecionar</p>
+                                        <p class="upload-hint">Formatos suportados: MP4, WebM, AVI, MOV | Máximo: 10GB</p>
+                                        <input type="file" id="video-file-input" accept="video/*" hidden>
+                                    </div>
+
+                                    <!-- Video Preview -->
+                                    <div id="video-preview" class="video-preview" style="display: none;">
+                                        <video id="preview-video" controls></video>
+                                        <div class="video-info">
+                                            <div class="video-meta">
+                                                <span id="video-duration">Duração: --:--</span>
+                                                <span id="video-size">Tamanho: -- MB</span>
+                                                <span id="video-type-indicator">Tipo: --</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Thumbnail Upload -->
+                                    <div class="thumbnail-upload">
+                                        <label>Thumbnail (opcional)</label>
+                                        <div class="thumbnail-area" id="thumbnail-upload-area">
+                                            <div class="thumbnail-placeholder">
+                                                <span class="icon">🖼️</span>
+                                                <span>Selecionar thumbnail</span>
+                                            </div>
+                                            <input type="file" id="thumbnail-file-input" accept="image/*" hidden>
+                                        </div>
+                                        <div id="thumbnail-preview" class="thumbnail-preview" style="display: none;">
+                                            <img id="preview-thumbnail" alt="Thumbnail preview">
+                                        </div>
+                                    </div>
+
+                                    <!-- Video Details -->
+                                    <div class="video-details">
+                                        <div class="form-group">
+                                            <label for="video-title">Título*</label>
+                                            <input type="text" id="video-title" maxlength="200" required placeholder="Digite o título do vídeo...">
+                                            <div class="char-count">
+                                                <span id="title-count">0</span>/200
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="video-description">Descrição</label>
+                                            <textarea id="video-description" maxlength="5000" placeholder="Descreva seu vídeo..."></textarea>
+                                            <div class="char-count">
+                                                <span id="description-count">0</span>/5000
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="video-category">Categoria</label>
+                                                <select id="video-category">
+                                                    <option value="general">Geral</option>
+                                                    <option value="gaming">Gaming</option>
+                                                    <option value="music">Música</option>
+                                                    <option value="education">Educação</option>
+                                                    <option value="entertainment">Entretenimento</option>
+                                                    <option value="news">Notícias</option>
+                                                    <option value="sports">Esportes</option>
+                                                    <option value="technology">Tecnologia</option>
+                                                    <option value="lifestyle">Estilo de Vida</option>
+                                                    <option value="comedy">Comédia</option>
+                                                    <option value="tutorial">Tutorial</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="form-group">
+                                                <label for="video-visibility">Visibilidade</label>
+                                                <select id="video-visibility">
+                                                    <option value="public">Público</option>
+                                                    <option value="private">Privado</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="video-tags">Tags (separadas por vírgula)</label>
+                                            <input type="text" id="video-tags" placeholder="tag1, tag2, tag3...">
+                                            <div class="tags-preview" id="tags-preview"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Upload Actions -->
+                                    <div class="upload-actions">
+                                        <button type="button" id="cancel-upload" class="btn-secondary">
+                                            Cancelar
+                                        </button>
+                                        <button type="submit" id="submit-upload" class="btn-primary" disabled>
+                                            <span class="btn-text">Enviar Vídeo</span>
+                                            <span class="btn-loading" style="display: none;">
+                                                <div class="loading-spinner small"></div>
+                                                Enviando...
+                                            </span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Upload Progress -->
+                                    <div id="upload-progress" class="upload-progress" style="display: none;">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" id="progress-fill"></div>
+                                        </div>
+                                        <div class="progress-text">
+                                            <span id="progress-percentage">0%</span>
+                                            <span id="progress-status">Preparando upload...</span>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Video Player Modal -->
+                    <div id="video-player-modal" class="video-modal" style="display: none;">
+                        <div class="modal-backdrop" id="modal-backdrop"></div>
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="modal-video-title">Título do Vídeo</h3>
+                                <button class="modal-close-btn" id="modal-close-btn">✕</button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="video-player-container">
+                                    <video id="modal-video-player" controls autoplay>
+                                        <source id="modal-video-source" src="" type="video/mp4">
+                                        Seu navegador não suporta o elemento de vídeo.
+                                    </video>
+                                </div>
+                                <div class="video-details-panel">
+                                    <div class="video-info-section">
+                                        <div class="video-author">
+                                            <div class="author-avatar" id="modal-author-avatar">👤</div>
+                                            <div class="author-info">
+                                                <div class="author-name" id="modal-author-name">Nome do Autor</div>
+                                                <div class="video-stats">
+                                                    <span id="modal-video-views">0 visualizações</span>
+                                                    <span>•</span>
+                                                    <span id="modal-video-date">há 1 dia</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="video-actions">
+                                            <button class="action-btn like-btn" id="modal-like-btn">
+                                                <span class="icon">👍</span>
+                                                <span id="modal-likes-count">0</span>
+                                            </button>
+                                            <button class="action-btn dislike-btn" id="modal-dislike-btn">
+                                                <span class="icon">👎</span>
+                                                <span id="modal-dislikes-count">0</span>
+                                            </button>
+                                            <button class="action-btn share-btn" id="modal-share-btn">
+                                                <span class="icon">📤</span>
+                                                Compartilhar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="video-description-section">
+                                        <div class="description-content" id="modal-video-description">
+                                            Descrição do vídeo aparecerá aqui...
+                                        </div>
+                                        <div class="video-tags" id="modal-video-tags">
+                                            <!-- Tags will be populated here -->
+                                        </div>
+                                    </div>
+                                    <div class="comments-section">
+                                        <div class="comments-header">
+                                            <h4><span id="modal-comments-count">0</span> comentários</h4>
+                                        </div>
+                                        <div class="comment-form">
+                                            <textarea id="comment-input" placeholder="Adicione um comentário..."></textarea>
+                                            <div class="comment-actions">
+                                                <button class="btn-secondary" id="cancel-comment">Cancelar</button>
+                                                <button class="btn-primary" id="submit-comment">Comentar</button>
+                                            </div>
+                                        </div>
+                                        <div class="comments-list" id="comments-list">
+                                            <!-- Comments will be populated here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="videos-loading" class="loading-state" style="display: none;">
+                        <div class="loading-spinner"></div>
+                        <p>Carregando vídeos...</p>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="videos-empty" class="empty-state" style="display: none;">
+                        <div class="empty-icon">📹</div>
+                        <h3>Nenhum vídeo encontrado</h3>
+                        <p>Seja o primeiro a compartilhar um vídeo na rede!</p>
+                        <button class="btn-primary" onclick="VideoModule.switchView('upload')">
+                            Enviar Vídeo
+                        </button>
+                    </div>
+
+                </section>
             </div>
 
             <!-- Settings Section -->
@@ -247,6 +562,51 @@
 
     <script src="/static/js/module-loader.js"></script>
     <script src="/static/js/modules/feed.js"></script>
+    <script src="/static/js/modules/video-demo-data.js"></script>
+    <script src="/static/js/modules/videos.js"></script>
     <script src="/static/script.js"></script>
+
+    <!-- Initialize Video Module -->
+    <script>
+        // Global flag to prevent multiple initializations
+        window.videoModuleInitialized = false;
+
+        function initializeVideoModule() {
+            if (window.videoModuleInitialized) {
+                console.log('📹 VideoModule already initialized, skipping...');
+                return;
+            }
+
+            if (document.getElementById('videos-section') && window.VideoModule) {
+                console.log('📹 VideoModule found, initializing...');
+                try {
+                    window.VideoModule.init();
+                    window.videoModuleInitialized = true;
+                    console.log('✅ VideoModule initialized successfully');
+                } catch (error) {
+                    console.error('❌ Error initializing VideoModule:', error);
+                }
+            }
+        }
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎬 DOM ready, checking for video module...');
+
+            // Try immediate initialization
+            initializeVideoModule();
+
+            // Fallback initialization with delay
+            if (!window.videoModuleInitialized) {
+                console.log('⏳ Waiting for VideoModule...');
+                setTimeout(() => {
+                    initializeVideoModule();
+                }, 500);
+            }
+        });
+
+        // Also expose function globally for manual initialization
+        window.initializeVideoModule = initializeVideoModule;
+    </script>
 </body>
 </html>

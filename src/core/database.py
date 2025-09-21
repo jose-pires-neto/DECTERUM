@@ -184,9 +184,132 @@ class P2PDatabase:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_feed_votes_post ON feed_votes(post_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_community_badges_post ON community_badges(post_id)')
 
+        # Tabelas do módulo de vídeos
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS videos (
+                id TEXT PRIMARY KEY,
+                author_id TEXT,
+                author_username TEXT,
+                title TEXT,
+                description TEXT,
+                video_url TEXT,
+                thumbnail_url TEXT,
+                duration INTEGER,
+                video_type TEXT,
+                resolution TEXT,
+                size_bytes INTEGER,
+                mime_type TEXT,
+                timestamp REAL,
+                views_count INTEGER DEFAULT 0,
+                likes_count INTEGER DEFAULT 0,
+                dislikes_count INTEGER DEFAULT 0,
+                comments_count INTEGER DEFAULT 0,
+                shares_count INTEGER DEFAULT 0,
+                is_public INTEGER DEFAULT 1,
+                is_monetized INTEGER DEFAULT 0,
+                tags TEXT,
+                category TEXT DEFAULT 'general',
+                language TEXT DEFAULT 'pt-BR',
+                quality_levels TEXT,
+                chapters TEXT,
+                subtitles_url TEXT,
+                metadata TEXT,
+                FOREIGN KEY (author_id) REFERENCES users (user_id)
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS video_likes (
+                id TEXT PRIMARY KEY,
+                video_id TEXT,
+                user_id TEXT,
+                username TEXT,
+                like_type TEXT,
+                timestamp REAL,
+                FOREIGN KEY (video_id) REFERENCES videos (id),
+                FOREIGN KEY (user_id) REFERENCES users (user_id),
+                UNIQUE(video_id, user_id)
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS video_comments (
+                id TEXT PRIMARY KEY,
+                video_id TEXT,
+                author_id TEXT,
+                author_username TEXT,
+                content TEXT,
+                timestamp REAL,
+                parent_comment_id TEXT,
+                likes_count INTEGER DEFAULT 0,
+                replies_count INTEGER DEFAULT 0,
+                is_pinned INTEGER DEFAULT 0,
+                is_creator_reply INTEGER DEFAULT 0,
+                FOREIGN KEY (video_id) REFERENCES videos (id),
+                FOREIGN KEY (author_id) REFERENCES users (user_id),
+                FOREIGN KEY (parent_comment_id) REFERENCES video_comments (id)
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS video_views (
+                id TEXT PRIMARY KEY,
+                video_id TEXT,
+                viewer_id TEXT,
+                viewer_username TEXT,
+                watch_time INTEGER,
+                completion_rate REAL,
+                timestamp REAL,
+                device_type TEXT DEFAULT 'web',
+                quality_watched TEXT DEFAULT '720p',
+                FOREIGN KEY (video_id) REFERENCES videos (id),
+                FOREIGN KEY (viewer_id) REFERENCES users (user_id)
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS video_shares (
+                id TEXT PRIMARY KEY,
+                video_id TEXT,
+                sharer_id TEXT,
+                sharer_username TEXT,
+                platform TEXT,
+                timestamp REAL,
+                FOREIGN KEY (video_id) REFERENCES videos (id),
+                FOREIGN KEY (sharer_id) REFERENCES users (user_id)
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS playlists (
+                id TEXT PRIMARY KEY,
+                creator_id TEXT,
+                creator_username TEXT,
+                title TEXT,
+                description TEXT,
+                is_public INTEGER DEFAULT 1,
+                video_ids TEXT,
+                thumbnail_url TEXT,
+                timestamp REAL,
+                views_count INTEGER DEFAULT 0,
+                FOREIGN KEY (creator_id) REFERENCES users (user_id)
+            )
+        ''')
+
+        # Índices para performance dos vídeos
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_timestamp ON videos(timestamp)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_author ON videos(author_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_type ON videos(video_type)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_category ON videos(category)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_videos_views ON videos(views_count)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_likes_video ON video_likes(video_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_comments_video ON video_comments(video_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_video_views_video ON video_views(video_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_playlists_creator ON playlists(creator_id)')
+
         conn.commit()
         conn.close()
-        logger.info("📊 Database inicializada")
+        logger.info("📊 Database inicializada com módulos de Feed e Vídeos")
 
     def get_user(self, user_id: str) -> Optional[Dict]:
         """Busca usuário por ID"""
@@ -372,3 +495,7 @@ class P2PDatabase:
         result = cursor.fetchone()
         conn.close()
         return result[0] if result else None
+
+
+# Usando alias para manter compatibilidade
+Database = P2PDatabase
