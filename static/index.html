@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/css/modules/feed.css">
 </head>
 <body>
     <div class="app">
@@ -75,10 +76,10 @@
 
             <!-- Feed Section -->
             <div class="section" id="feed-section">
-                <div class="coming-soon">
-                    <div class="coming-soon-icon">📖</div>
-                    <h2>Social Feed</h2>
-                    <p>Coming soon: Decentralized posts, timeline, and social interactions</p>
+                <!-- O conteúdo do feed será carregado dinamicamente -->
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <p>Carregando módulo do feed...</p>
                 </div>
             </div>
 
@@ -237,11 +238,15 @@
         </div>
     </div>
 
+    <!-- Feed modals will be loaded dynamically -->
+
     <!-- Toast Notification -->
     <div class="toast" id="toast">
         <span id="toast-message"></span>
     </div>
 
+    <script src="/static/js/module-loader.js"></script>
+    <script src="/static/js/modules/feed.js"></script>
     <script src="/static/script.js"></script>
 </body>
 </html>

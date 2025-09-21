@@ -338,7 +338,53 @@ function switchSection(sectionName) {
         showContactsList();
     }
 
+    // Load feed module when switching to feed section
+    if (sectionName === 'feed') {
+        loadFeedModule();
+    }
+
     activeSection = sectionName;
+}
+
+// Carrega módulo do feed
+async function loadFeedModule() {
+    try {
+        const feedSection = document.getElementById('feed-section');
+
+        // Se o módulo já foi carregado, apenas inicializa
+        if (window.DECTERUM.ModuleLoader && window.DECTERUM.ModuleLoader.isModuleLoaded('feed')) {
+            if (window.DECTERUM.Feed) {
+                // Atualiza username se necessário
+                const feedUsername = document.getElementById('feed-username');
+                if (feedUsername && feedUsername.textContent === 'User' && currentUser) {
+                    feedUsername.textContent = currentUser.username;
+                }
+                return;
+            }
+        }
+
+        // Carrega o módulo completo
+        if (window.DECTERUM.ModuleLoader) {
+            await window.DECTERUM.ModuleLoader.loadModule('feed', feedSection);
+
+            // Atualiza username após carregamento
+            setTimeout(() => {
+                const feedUsername = document.getElementById('feed-username');
+                if (feedUsername && currentUser) {
+                    feedUsername.textContent = currentUser.username;
+                }
+            }, 100);
+        }
+    } catch (error) {
+        console.error('Erro carregando módulo do feed:', error);
+        document.getElementById('feed-section').innerHTML = `
+            <div class="empty-feed">
+                <div class="empty-feed-icon">⚠️</div>
+                <h3>Erro ao carregar feed</h3>
+                <p>Tente recarregar a página</p>
+            </div>
+        `;
+    }
 }
 
 function showAddContactModal() {
@@ -486,8 +532,11 @@ function escapeHtml(unsafe) {
         .replace(/'/g, "&#039;");
 }
 
+// Feed module loading is handled by the modular system
+
 // Export functions for global access (if needed)
-window.DECTERUM = {
+window.DECTERUM = window.DECTERUM || {};
+Object.assign(window.DECTERUM, {
     copyUserId,
     copyTunnelUrl,
     showToast,
@@ -501,5 +550,6 @@ window.DECTERUM = {
     updateProfile,
     discoverPeers,
     selectContact,
-    showContactsList
-};
+    showContactsList,
+    loadFeedModule
+});
