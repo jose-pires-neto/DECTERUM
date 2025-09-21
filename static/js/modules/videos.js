@@ -10,6 +10,12 @@ window.VideoModule = {
     shortsQueue: [],
     currentShortIndex: 0,
     uploadInProgress: false,
+    infiniteScrollEnabled: true,
+    isLoadingMore: false,
+    scrollToTopButton: null,
+    touchStartY: 0,
+    touchEndY: 0,
+    swipeThreshold: 50,
 
     // Configurações
     config: {
@@ -23,6 +29,9 @@ window.VideoModule = {
     // Inicialização
     init() {
         this.setupEventListeners();
+        this.setupInfiniteScroll();
+        this.setupScrollToTop();
+        this.setupShortsSwipe();
         this.loadInitialContent();
         console.log('📹 Módulo de Vídeos inicializado');
     },
@@ -75,6 +84,11 @@ window.VideoModule = {
         // Shorts navigation
         document.getElementById('shorts-prev')?.addEventListener('click', () => this.previousShort());
         document.getElementById('shorts-next')?.addEventListener('click', () => this.nextShort());
+
+        // Shorts actions
+        document.getElementById('shorts-like')?.addEventListener('click', () => this.likeCurrent('like'));
+        document.getElementById('shorts-comment')?.addEventListener('click', () => this.openShortsComments());
+        document.getElementById('shorts-share')?.addEventListener('click', () => this.shareCurrentShort());
 
         // Load more
         document.getElementById('load-more-videos')?.addEventListener('click', () => this.loadMoreVideos());
@@ -512,6 +526,7 @@ window.VideoModule = {
                     <p>Nenhum short disponível</p>
                 </div>
             `;
+            this.updateShortsActionButtons(null);
             return;
         }
 
@@ -539,8 +554,35 @@ window.VideoModule = {
             </div>
         `;
 
+        // Atualizar botões de ação
+        this.updateShortsActionButtons(currentShort);
+
         // Registrar visualização
         this.recordVideoView(currentShort.id);
+    },
+
+    // Atualizar botões de ação dos shorts
+    updateShortsActionButtons(shortData) {
+        const likeBtn = document.getElementById('shorts-like');
+        const commentBtn = document.getElementById('shorts-comment');
+
+        if (likeBtn) {
+            const likeCount = likeBtn.querySelector('.count');
+            if (likeCount && shortData) {
+                likeCount.textContent = this.formatNumber(shortData.likes_count || 0);
+            } else if (likeCount) {
+                likeCount.textContent = '0';
+            }
+        }
+
+        if (commentBtn) {
+            const commentCount = commentBtn.querySelector('.count');
+            if (commentCount && shortData) {
+                commentCount.textContent = this.formatNumber(shortData.comments_count || 0);
+            } else if (commentCount) {
+                commentCount.textContent = '0';
+            }
+        }
     },
 
     // Navegação de shorts
@@ -548,6 +590,7 @@ window.VideoModule = {
         if (this.currentShortIndex > 0) {
             this.currentShortIndex--;
             this.renderCurrentShort();
+            this.animateShortTransition('up');
         }
     },
 
@@ -555,6 +598,162 @@ window.VideoModule = {
         if (this.currentShortIndex < this.shortsQueue.length - 1) {
             this.currentShortIndex++;
             this.renderCurrentShort();
+            this.animateShortTransition('down');
+        } else {
+            // Carregar mais shorts se chegou no final
+            this.loadMoreShorts();
+        }
+    },
+
+    // Animar transição de shorts
+    animateShortTransition(direction) {
+        const player = document.querySelector('.shorts-player');
+        if (!player) return;
+
+        // Adicionar classe de animação
+        const animationClass = direction === 'up' ? 'shorts-transition-up' : 'shorts-transition-down';
+        player.classList.add(animationClass);
+
+        // Remover classe após animação
+        setTimeout(() => {
+            player.classList.remove(animationClass);
+        }, 300);
+
+        // Fallback para navegadores sem suporte a CSS animations
+        if (!CSS.supports('animation', 'slideUp 0.3s ease')) {
+            player.style.transform = direction === 'up' ? 'translateY(-20px)' : 'translateY(20px)';
+            player.style.opacity = '0.8';
+
+            setTimeout(() => {
+                player.style.transform = 'translateY(0)';
+                player.style.opacity = '1';
+            }, 150);
+        }
+    },
+
+    // Carregar mais shorts
+    async loadMoreShorts() {
+        try {
+            // Em produção, carregar mais shorts da API
+            // Por enquanto, mostrar mensagem
+            this.showSuccess('🔄 Carregando mais shorts...');
+        } catch (error) {
+            console.error('Erro carregando mais shorts:', error);
+        }
+    },
+
+    // === SWIPE GESTURES ===
+
+    // Configurar swipe nos shorts
+    setupShortsSwipe() {
+        const shortsPlayer = document.querySelector('.shorts-player');
+        if (!shortsPlayer) return;
+
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+
+        // Touch events
+        shortsPlayer.addEventListener('touchstart', (e) => {
+            if (this.currentView !== 'shorts') return;
+            startY = e.touches[0].clientY;
+            this.touchStartY = startY;
+            isDragging = true;
+        }, { passive: true });
+
+        shortsPlayer.addEventListener('touchmove', (e) => {
+            if (!isDragging || this.currentView !== 'shorts') return;
+            currentY = e.touches[0].clientY;
+            const deltaY = currentY - startY;
+
+            // Feedback visual durante o swipe
+            if (Math.abs(deltaY) > 10) {
+                const opacity = Math.max(0.7, 1 - Math.abs(deltaY) / 200);
+                shortsPlayer.style.opacity = opacity;
+                shortsPlayer.style.transform = `translateY(${deltaY * 0.1}px)`;
+            }
+        }, { passive: true });
+
+        shortsPlayer.addEventListener('touchend', (e) => {
+            if (!isDragging || this.currentView !== 'shorts') return;
+
+            this.touchEndY = currentY || this.touchStartY;
+            const deltaY = this.touchEndY - this.touchStartY;
+
+            // Reset visual feedback
+            shortsPlayer.style.opacity = '1';
+            shortsPlayer.style.transform = 'translateY(0)';
+
+            // Detectar swipe
+            if (Math.abs(deltaY) > this.swipeThreshold) {
+                if (deltaY > 0) {
+                    // Swipe down - próximo short
+                    this.previousShort();
+                } else {
+                    // Swipe up - short anterior
+                    this.nextShort();
+                }
+            }
+
+            isDragging = false;
+        }, { passive: true });
+
+        // Mouse events para desktop (opcional)
+        let mouseStartY = 0;
+        let isMouseDragging = false;
+
+        shortsPlayer.addEventListener('mousedown', (e) => {
+            if (this.currentView !== 'shorts') return;
+            mouseStartY = e.clientY;
+            isMouseDragging = true;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isMouseDragging || this.currentView !== 'shorts') return;
+            const deltaY = e.clientY - mouseStartY;
+
+            if (Math.abs(deltaY) > 10) {
+                const opacity = Math.max(0.7, 1 - Math.abs(deltaY) / 200);
+                shortsPlayer.style.opacity = opacity;
+                shortsPlayer.style.transform = `translateY(${deltaY * 0.1}px)`;
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            if (!isMouseDragging || this.currentView !== 'shorts') return;
+
+            const deltaY = e.clientY - mouseStartY;
+
+            // Reset visual feedback
+            shortsPlayer.style.opacity = '1';
+            shortsPlayer.style.transform = 'translateY(0)';
+
+            // Detectar swipe
+            if (Math.abs(deltaY) > this.swipeThreshold) {
+                if (deltaY > 0) {
+                    this.previousShort();
+                } else {
+                    this.nextShort();
+                }
+            }
+
+            isMouseDragging = false;
+        });
+    },
+
+    // Detectar swipe
+    detectSwipe() {
+        const deltaY = this.touchEndY - this.touchStartY;
+
+        if (Math.abs(deltaY) > this.swipeThreshold) {
+            if (deltaY > 0) {
+                // Swipe para baixo - short anterior
+                this.previousShort();
+            } else {
+                // Swipe para cima - próximo short
+                this.nextShort();
+            }
         }
     },
 
@@ -1276,6 +1475,177 @@ window.VideoModule = {
         // Implementar notificação de erro
         console.error('❌', message);
         alert(message); // Temporário
+    },
+
+    // === SCROLL INFINITO ===
+
+    // Configurar scroll infinito
+    setupInfiniteScroll() {
+        let debounceTimer;
+        window.addEventListener('scroll', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                this.handleScroll();
+            }, 100);
+        });
+    },
+
+    // Manipular scroll
+    handleScroll() {
+        if (!this.infiniteScrollEnabled || this.isLoadingMore) return;
+        if (this.currentView !== 'home' && this.currentView !== 'trending') return;
+
+        const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+        const isNearBottom = scrollTop + clientHeight >= scrollHeight - 1000;
+
+        if (isNearBottom) {
+            this.loadMoreVideosInfinite();
+        }
+
+        // Mostrar/esconder botão scroll to top
+        this.updateScrollToTopButton(scrollTop > 500);
+    },
+
+    // Carregar mais vídeos (scroll infinito)
+    async loadMoreVideosInfinite() {
+        if (this.isLoadingMore) return;
+
+        this.isLoadingMore = true;
+        this.showInfiniteLoading(true);
+
+        try {
+            const grid = document.querySelector(this.currentView === 'home' ? '.video-grid' : '.trending-grid');
+            const currentCount = grid?.children.length || 0;
+
+            if (this.currentView === 'home') {
+                await this.loadHomeVideos(currentCount, true);
+            } else if (this.currentView === 'trending') {
+                await this.loadTrendingVideos('', currentCount, true);
+            }
+        } catch (error) {
+            console.error('Erro no scroll infinito:', error);
+        } finally {
+            this.isLoadingMore = false;
+            this.showInfiniteLoading(false);
+        }
+    },
+
+    // Mostrar loading do scroll infinito
+    showInfiniteLoading(show) {
+        let loadingElement = document.querySelector('.infinite-scroll-loading');
+
+        if (!loadingElement && show) {
+            loadingElement = document.createElement('div');
+            loadingElement.className = 'infinite-scroll-loading';
+            loadingElement.innerHTML = `
+                <div class="loading-spinner"></div>
+                <p>Carregando mais vídeos...</p>
+            `;
+
+            const container = document.querySelector('.video-views-container');
+            if (container) {
+                container.appendChild(loadingElement);
+            }
+        }
+
+        if (loadingElement) {
+            loadingElement.classList.toggle('visible', show);
+            if (!show) {
+                setTimeout(() => {
+                    loadingElement.remove();
+                }, 300);
+            }
+        }
+    },
+
+    // === SCROLL TO TOP ===
+
+    // Configurar botão scroll to top
+    setupScrollToTop() {
+        this.scrollToTopButton = document.getElementById('scroll-to-top');
+        if (this.scrollToTopButton) {
+            this.scrollToTopButton.addEventListener('click', () => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+        }
+    },
+
+    // Atualizar visibilidade do botão scroll to top
+    updateScrollToTopButton(visible) {
+        if (this.scrollToTopButton) {
+            this.scrollToTopButton.classList.toggle('visible', visible);
+        }
+    },
+
+    // === AÇÕES DOS SHORTS ===
+
+    // Curtir short atual
+    async likeCurrent(likeType) {
+        if (!this.shortsQueue[this.currentShortIndex]) return;
+
+        const currentShort = this.shortsQueue[this.currentShortIndex];
+
+        try {
+            // Simular like (em produção, fazer requisição)
+            currentShort.likes_count = (currentShort.likes_count || 0) + 1;
+
+            // Atualizar UI
+            const likeBtn = document.getElementById('shorts-like');
+            const countElement = likeBtn?.querySelector('.count');
+
+            if (likeBtn && countElement) {
+                likeBtn.classList.add('active');
+                countElement.textContent = this.formatNumber(currentShort.likes_count);
+
+                // Animação de feedback
+                setTimeout(() => {
+                    likeBtn.classList.remove('active');
+                }, 1000);
+            }
+
+            this.showSuccess('❤️ Curtido!');
+        } catch (error) {
+            console.error('Erro ao curtir:', error);
+        }
+    },
+
+    // Abrir comentários do short
+    openShortsComments() {
+        if (!this.shortsQueue[this.currentShortIndex]) return;
+
+        const currentShort = this.shortsQueue[this.currentShortIndex];
+        // Em produção, abrir modal de comentários
+        this.showSuccess('💬 Comentários em desenvolvimento');
+    },
+
+    // Compartilhar short atual
+    async shareCurrentShort() {
+        if (!this.shortsQueue[this.currentShortIndex]) return;
+
+        const currentShort = this.shortsQueue[this.currentShortIndex];
+
+        try {
+            const shareUrl = `${window.location.origin}#short=${currentShort.id}`;
+
+            if (navigator.share) {
+                // API nativa de compartilhamento (mobile)
+                await navigator.share({
+                    title: currentShort.title,
+                    text: `Confira este short: ${currentShort.title}`,
+                    url: shareUrl
+                });
+            } else {
+                // Copiar para clipboard (desktop)
+                await navigator.clipboard.writeText(shareUrl);
+                this.showSuccess('📤 Link copiado!');
+            }
+        } catch (error) {
+            console.error('Erro ao compartilhar:', error);
+            this.showError('Erro ao compartilhar');
+        }
     }
 };
 

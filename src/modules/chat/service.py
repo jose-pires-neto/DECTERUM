@@ -40,10 +40,17 @@ class ChatService:
         """Adiciona um novo contato"""
         self.db.add_contact(owner_id, contact_id, username)
 
-    def mark_message_as_read(self, message_id: str):
-        """Marca mensagem como lida"""
-        # TODO: Implementar atualização de status de leitura
-        pass
+    def remove_contact(self, owner_id: str, contact_id: str):
+        """Remove um contato"""
+        self.db.remove_contact(owner_id, contact_id)
+
+    def mark_messages_as_read(self, recipient_id: str, sender_id: str):
+        """Marca todas as mensagens de um contato como lidas"""
+        self.db.mark_messages_as_read(recipient_id, sender_id)
+
+    def get_unread_count(self, recipient_id: str, sender_id: str) -> int:
+        """Obtém contagem de mensagens não lidas de um contato específico"""
+        return self.db.get_unread_count(recipient_id, sender_id)
 
     def mark_message_as_delivered(self, message_id: str):
         """Marca mensagem como entregue"""

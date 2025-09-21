@@ -5,7 +5,7 @@ from .models import Message
 import time
 import uuid
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 def setup_chat_routes(chat_service: ChatService, node) -> APIRouter:
@@ -16,7 +16,7 @@ def setup_chat_routes(chat_service: ChatService, node) -> APIRouter:
         """Obtém mensagens com um contato"""
         try:
             messages = chat_service.get_conversation(node.current_user_id, contact_id)
-            return messages
+            return {"messages": messages}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -58,11 +58,11 @@ def setup_chat_routes(chat_service: ChatService, node) -> APIRouter:
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/contacts")
-    async def get_contacts() -> List[Dict]:
+    async def get_contacts() -> Dict:
         """Obtém lista de contatos"""
         try:
             contacts = chat_service.get_user_contacts(node.current_user_id)
-            return contacts
+            return {"contacts": contacts}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
@@ -80,6 +80,24 @@ def setup_chat_routes(chat_service: ChatService, node) -> APIRouter:
 
             return {"success": True, "message": "Contato adicionado com sucesso"}
 
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.delete("/contacts/{contact_id}")
+    async def remove_contact(contact_id: str) -> Dict:
+        """Remove um contato"""
+        try:
+            chat_service.remove_contact(node.current_user_id, contact_id)
+            return {"success": True, "message": "Contato removido com sucesso"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/messages/{contact_id}/mark-read")
+    async def mark_messages_read(contact_id: str) -> Dict:
+        """Marca todas as mensagens de um contato como lidas"""
+        try:
+            chat_service.mark_messages_as_read(node.current_user_id, contact_id)
+            return {"success": True, "message": "Mensagens marcadas como lidas"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 

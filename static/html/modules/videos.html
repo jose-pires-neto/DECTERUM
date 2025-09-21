@@ -82,8 +82,19 @@
                     </div>
                 </div>
                 <div class="shorts-controls">
-                    <button class="shorts-nav-btn" id="shorts-prev">⬆️</button>
-                    <button class="shorts-nav-btn" id="shorts-next">⬇️</button>
+                    <button class="shorts-action-btn" id="shorts-like" title="Curtir">
+                        <span class="icon">❤️</span>
+                        <span class="count">0</span>
+                    </button>
+                    <button class="shorts-action-btn" id="shorts-comment" title="Comentar">
+                        <span class="icon">💬</span>
+                        <span class="count">0</span>
+                    </button>
+                    <button class="shorts-action-btn" id="shorts-share" title="Compartilhar">
+                        <span class="icon">📤</span>
+                    </button>
+                    <button class="shorts-nav-btn" id="shorts-prev" title="Anterior">⬆️</button>
+                    <button class="shorts-nav-btn" id="shorts-next" title="Próximo">⬇️</button>
                 </div>
             </div>
         </div>
@@ -229,6 +240,11 @@
 
     </div>
 
+    <!-- Scroll to Top Button -->
+    <button id="scroll-to-top" class="scroll-to-top" title="Voltar ao topo">
+        ⬆️
+    </button>
+
     <!-- Video Player Modal -->
     <div id="video-player-modal" class="video-modal" style="display: none;">
         <div class="modal-backdrop" id="modal-backdrop"></div>
@@ -239,7 +255,7 @@
             </div>
             <div class="modal-body">
                 <div class="video-player-container">
-                    <video id="modal-video-player" controls autoplay>
+                    <video id="modal-video-player" controls autoplay playsinline>
                         <source id="modal-video-source" src="" type="video/mp4">
                         Seu navegador não suporta o elemento de vídeo.
                     </video>

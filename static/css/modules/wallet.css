@@ -1,0 +1,501 @@
+/* DECTERUM Wallet Styles */
+
+.wallet-section {
+    padding: var(--spacing-5);
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.wallet-header {
+    text-align: center;
+    margin-bottom: var(--spacing-6);
+    padding: var(--spacing-5);
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-radius: var(--radius-lg);
+    color: white;
+}
+
+.wallet-title h2 {
+    font-size: var(--font-size-2xl);
+    margin-bottom: var(--spacing-1);
+    font-weight: 600;
+}
+
+.wallet-subtitle {
+    font-size: var(--font-size-sm);
+    opacity: 0.9;
+    margin: 0;
+}
+
+.wallet-balance {
+    margin-top: var(--spacing-4);
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: var(--spacing-2);
+}
+
+.balance-amount {
+    font-size: 2.5rem;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.balance-currency {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.wallet-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-3);
+    margin-bottom: var(--spacing-6);
+}
+
+.wallet-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-3);
+    margin-bottom: var(--spacing-6);
+}
+
+.stat-item {
+    text-align: center;
+    padding: var(--spacing-3);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-1);
+}
+
+.stat-value {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: monospace;
+}
+
+.transaction-history {
+    margin-top: var(--spacing-6);
+}
+
+.transaction-history .section-header {
+    margin-bottom: var(--spacing-4);
+}
+
+.transaction-history h3 {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.transactions-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.transaction-item {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-3);
+    border-bottom: 1px solid var(--border);
+    gap: var(--spacing-3);
+}
+
+.transaction-item:last-child {
+    border-bottom: none;
+}
+
+.transaction-icon {
+    font-size: var(--font-size-lg);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border-radius: var(--radius-full);
+}
+
+.transaction-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.transaction-type {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.transaction-details {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.transaction-time {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+.transaction-amount {
+    font-family: monospace;
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+}
+
+.transaction-amount.positive {
+    color: #059669;
+}
+
+.transaction-amount.negative {
+    color: #dc2626;
+}
+
+/* Modal specific styles */
+.wallet-balance-info {
+    text-align: center;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: var(--spacing-3) 0;
+    font-family: monospace;
+}
+
+.form-hint {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    margin-top: var(--spacing-1);
+}
+
+/* Stars modal specific styles */
+.stars-preview {
+    text-align: center;
+    padding: var(--spacing-5);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-4);
+}
+
+.stars-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-2);
+}
+
+.star-count {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.star-icon {
+    font-size: 2rem;
+}
+
+.stars-value {
+    font-size: var(--font-size-lg);
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.star-slider {
+    width: 100%;
+    margin: var(--spacing-3) 0;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    outline: none;
+}
+
+.star-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #f59e0b;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.star-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #f59e0b;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+}
+
+.creator-info {
+    text-align: center;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: var(--spacing-3) 0;
+}
+
+/* Badge vote button styles */
+.badge-vote-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+}
+
+.badge-vote-btn:hover {
+    background: #f59e0b;
+    color: white;
+    border-color: #f59e0b;
+}
+
+.badge-vote-btn.voted {
+    background: #059669;
+    color: white;
+    border-color: #059669;
+}
+
+/* Star donation button for videos */
+.star-donation-btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border: none;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+}
+
+.star-donation-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+/* Blockchain mode selector */
+.blockchain-mode {
+    margin-bottom: var(--spacing-5);
+    text-align: center;
+}
+
+.mode-selector {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-2);
+    justify-content: center;
+}
+
+.mode-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.mode-btn:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-300);
+}
+
+.mode-btn.active {
+    background: #f59e0b;
+    color: white;
+    border-color: #f59e0b;
+}
+
+.mode-description {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+}
+
+/* Conversion modal styles */
+.conversion-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-5);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-4);
+    gap: var(--spacing-3);
+}
+
+.from-currency, .to-currency {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-1);
+}
+
+.from-currency .amount, .to-currency .amount {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.from-currency .currency, .to-currency .currency {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.conversion-arrow {
+    font-size: var(--font-size-2xl);
+    color: var(--text-secondary);
+}
+
+.conversion-details {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-4);
+    margin: var(--spacing-4) 0;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--spacing-2) 0;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--font-size-sm);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row.total {
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    padding-top: var(--spacing-3);
+    margin-top: var(--spacing-2);
+    border-top: 2px solid var(--border);
+}
+
+.conversion-instructions {
+    background: var(--gray-50);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-4);
+    margin: var(--spacing-4) 0;
+}
+
+.instruction-step {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-2) 0;
+}
+
+.step-number {
+    background: #f59e0b;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* Real blockchain specific styles */
+.real-blockchain .wallet-header {
+    background: linear-gradient(135deg, #059669, #047857);
+}
+
+.real-blockchain .stat-item {
+    border-left: 3px solid #059669;
+}
+
+.real-blockchain .balance-amount {
+    color: #059669;
+}
+
+/* Mining indicator */
+.mining-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding: var(--spacing-1) var(--spacing-2);
+    background: rgba(5, 150, 105, 0.1);
+    color: #059669;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+
+.mining-indicator.active {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .wallet-stats {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-2);
+    }
+
+    .wallet-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .balance-amount {
+        font-size: 2rem;
+    }
+
+    .mode-selector {
+        flex-direction: column;
+        gap: var(--spacing-1);
+    }
+
+    .conversion-preview {
+        flex-direction: column;
+        gap: var(--spacing-2);
+    }
+
+    .conversion-arrow {
+        transform: rotate(90deg);
+    }
+}

@@ -13,6 +13,8 @@ from ..modules.chat.routes import setup_chat_routes
 from ..modules.feed.service import FeedService
 from ..modules.feed.routes import setup_feed_routes
 from ..modules.video.routes import router as video_router
+from ..modules.wallet.routes import setup_wallet_routes
+from ..blockchain.dtc_blockchain import DTCBlockchain
 
 logger = logging.getLogger(__name__)
 
@@ -79,12 +81,17 @@ def create_app(port: int = 8000) -> FastAPI:
     chat_service = ChatService(node.db)
     feed_service = FeedService(node.db)
 
+    # Inicializar blockchain DTC
+    blockchain = DTCBlockchain(node.db)
+
     # Configurar rotas dos módulos
     chat_router = setup_chat_routes(chat_service, node)
     feed_router = setup_feed_routes(feed_service, node)
+    wallet_router = setup_wallet_routes(blockchain, node)
 
     app.include_router(chat_router)
     app.include_router(feed_router)
+    app.include_router(wallet_router)
     app.include_router(video_router)
 
     # Rotas estáticas
@@ -116,6 +123,10 @@ def create_app(port: int = 8000) -> FastAPI:
         user = node.get_current_user()
         if not user:
             return JSONResponse(status_code=404, content={"error": "Usuário não encontrado"})
+
+        # Dar saldo inicial se for novo usuário
+        blockchain.give_initial_balance(node.current_user_id)
+
         return user
 
     @app.post("/api/user/update")

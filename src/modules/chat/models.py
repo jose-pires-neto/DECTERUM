@@ -20,6 +20,7 @@ class Contact:
     username: str
     added_at: float
     status: str = "offline"
+    unread_count: int = 0
 
 
 @dataclass

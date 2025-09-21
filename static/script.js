@@ -95,7 +95,7 @@ async function loadNetworkInfo() {
 
 async function loadContacts() {
     try {
-        const response = await fetch('/api/contacts');
+        const response = await fetch('/api/chat/contacts');
         if (response.ok) {
             const data = await response.json();
             contacts = data.contacts;
@@ -121,19 +121,26 @@ function renderContacts() {
     }
 
     const contactsHTML = contacts.map(contact => `
-        <div class="contact-item ${activeContact?.contact_id === contact.contact_id ? 'active' : ''}" 
+        <div class="contact-item ${activeContact?.contact_id === contact.contact_id ? 'active' : ''}"
              onclick="selectContact('${contact.contact_id}')">
             <div class="contact-avatar">
                 ${contact.username.charAt(0).toUpperCase()}
+                ${contact.unread_count > 0 ? `<div class="unread-badge">${contact.unread_count > 99 ? '99+' : contact.unread_count}</div>` : ''}
             </div>
             <div class="contact-info">
-                <div class="contact-name">${contact.username}</div>
+                <div class="contact-name ${contact.unread_count > 0 ? 'has-unread' : ''}">${contact.username}</div>
                 <div class="contact-preview">
-                    ${contact.status === 'online' ? 'Online' : 'Tap to message'}
+                    ${contact.unread_count > 0 ? `${contact.unread_count} new message${contact.unread_count > 1 ? 's' : ''}` :
+                      contact.status === 'online' ? 'Online' : 'Tap to message'}
                 </div>
             </div>
-            <div class="contact-time">
-                ${new Date(contact.added_at * 1000).toLocaleDateString()}
+            <div class="contact-actions">
+                <div class="contact-time">
+                    ${new Date(contact.added_at * 1000).toLocaleDateString()}
+                </div>
+                <button class="btn-icon remove-contact-btn" onclick="event.stopPropagation(); removeContact('${contact.contact_id}', '${contact.username}')" title="Remove contact">
+                    ✕
+                </button>
             </div>
         </div>
     `).join('');
@@ -148,18 +155,32 @@ async function selectContact(contactId) {
     // Show chat view
     document.getElementById('contacts-view').classList.add('hidden');
     document.getElementById('chat-view').classList.remove('hidden');
-    
+
     // Update chat header
     document.getElementById('chat-contact-name').textContent = activeContact.username;
-    
+
     // Enable input
     document.getElementById('message-input').disabled = false;
     document.getElementById('send-btn').disabled = false;
     document.getElementById('message-input').placeholder = `Message ${activeContact.username}...`;
 
+    // Mark messages as read
+    if (activeContact.unread_count > 0) {
+        try {
+            await fetch(`/api/chat/messages/${contactId}/mark-read`, {
+                method: 'POST'
+            });
+
+            // Update local contact unread count
+            activeContact.unread_count = 0;
+        } catch (error) {
+            console.error('Error marking messages as read:', error);
+        }
+    }
+
     // Load messages
     await loadMessages(contactId);
-    
+
     // Update contacts list
     renderContacts();
 }
@@ -178,9 +199,9 @@ function showContactsList() {
 
 async function loadMessages(contactId = null) {
     try {
-        const url = contactId ? `/api/messages?contact_id=${contactId}` : '/api/messages';
+        const url = contactId ? `/api/chat/messages/${contactId}` : '/api/chat/messages';
         const response = await fetch(url);
-        
+
         if (response.ok) {
             const data = await response.json();
             messages = data.messages;
@@ -225,7 +246,7 @@ async function sendMessage() {
     if (!content || !activeContact) return;
 
     try {
-        const response = await fetch('/api/send', {
+        const response = await fetch('/api/chat/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -250,12 +271,12 @@ async function sendMessage() {
 
 async function addContact(event) {
     event.preventDefault();
-    
+
     const contactId = document.getElementById('contact-id').value.trim();
     const contactName = document.getElementById('contact-name').value.trim();
 
     try {
-        const response = await fetch('/api/contacts', {
+        const response = await fetch('/api/chat/contacts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -268,7 +289,7 @@ async function addContact(event) {
             hideAddContactModal();
             await loadContacts();
             showToast('Contact added successfully!', 'success');
-            
+
             // Select the added contact
             setTimeout(() => selectContact(contactId), 100);
         } else {
@@ -277,6 +298,34 @@ async function addContact(event) {
         }
     } catch (error) {
         console.error('Error adding contact:', error);
+        showToast('Connectivity error', 'error');
+    }
+}
+
+async function removeContact(contactId, username) {
+    if (!confirm(`Are you sure you want to remove ${username} from your contacts?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/chat/contacts/${contactId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            // If we're currently chatting with this contact, go back to contacts list
+            if (activeContact && activeContact.contact_id === contactId) {
+                showContactsList();
+            }
+
+            await loadContacts();
+            showToast(`${username} removed from contacts`, 'success');
+        } else {
+            const error = await response.json();
+            showToast('Error removing contact: ' + error.detail, 'error');
+        }
+    } catch (error) {
+        console.error('Error removing contact:', error);
         showToast('Connectivity error', 'error');
     }
 }
@@ -346,6 +395,11 @@ function switchSection(sectionName) {
     // Load videos module when switching to videos section
     if (sectionName === 'videos') {
         loadVideosModule();
+    }
+
+    // Load wallet module when switching to wallet section
+    if (sectionName === 'wallet') {
+        initializeWallet();
     }
 
     activeSection = sectionName;
@@ -570,11 +624,16 @@ async function updateConnectionStatus(connected = null) {
 function startPeriodicUpdates() {
     // Update every 10 seconds
     setInterval(async () => {
-        if (activeContact && activeSection === 'chat') {
-            await loadMessages(activeContact.contact_id);
+        if (activeSection === 'chat') {
+            // Load contacts to update unread counts
+            await loadContacts();
+
+            if (activeContact) {
+                await loadMessages(activeContact.contact_id);
+            }
         }
         await updateConnectionStatus();
-        
+
         if (activeSection === 'settings') {
             await loadNetworkInfo();
         }
@@ -591,6 +650,24 @@ function escapeHtml(unsafe) {
 }
 
 // Feed module loading is handled by the modular system
+
+// Global function for opening star modal from video player
+function openStarModal() {
+    // Get current video data from the modal
+    const authorName = document.getElementById('modal-author-name').textContent;
+    const videoTitle = document.getElementById('modal-video-title').textContent;
+
+    // For now, use placeholder IDs - these should be set when opening video modal
+    const videoId = window.currentVideoId || 'unknown';
+    const authorId = window.currentVideoAuthorId || 'unknown';
+
+    if (authorId === 'unknown') {
+        showToast('Video author information not available', 'error');
+        return;
+    }
+
+    showSendStarsModal(videoId, authorId, authorName);
+}
 
 // Export functions for global access (if needed)
 window.DECTERUM = window.DECTERUM || {};
@@ -609,5 +686,6 @@ Object.assign(window.DECTERUM, {
     discoverPeers,
     selectContact,
     showContactsList,
-    loadFeedModule
+    loadFeedModule,
+    openStarModal
 });

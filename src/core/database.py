@@ -44,9 +44,16 @@ class P2PDatabase:
                 username TEXT,
                 added_at REAL,
                 status TEXT DEFAULT 'offline',
+                unread_count INTEGER DEFAULT 0,
                 FOREIGN KEY (owner_id) REFERENCES users (user_id)
             )
         ''')
+
+        # Adicionar coluna unread_count se não existir (para banco existente)
+        try:
+            cursor.execute('ALTER TABLE contacts ADD COLUMN unread_count INTEGER DEFAULT 0')
+        except sqlite3.OperationalError:
+            pass
 
         # Tabela de mensagens
         cursor.execute('''
@@ -379,7 +386,22 @@ class P2PDatabase:
         """Lista contatos do usuário"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM contacts WHERE owner_id = ?', (owner_id,))
+
+        # Obter contatos com contagem de mensagens não lidas
+        cursor.execute('''
+            SELECT c.*,
+                   COALESCE(unread.count, 0) as unread_count
+            FROM contacts c
+            LEFT JOIN (
+                SELECT sender_id, recipient_id,
+                       COUNT(*) as count
+                FROM messages
+                WHERE recipient_id = ? AND read_status = 0
+                GROUP BY sender_id
+            ) unread ON c.contact_id = unread.sender_id
+            WHERE c.owner_id = ?
+        ''', (owner_id, owner_id))
+
         results = cursor.fetchall()
         conn.close()
 
@@ -389,9 +411,43 @@ class P2PDatabase:
                 'contact_id': row[2],
                 'username': row[3],
                 'added_at': row[4],
-                'status': row[5]
+                'status': row[5],
+                'unread_count': row[7] if len(row) > 7 else 0
             })
         return contacts
+
+    def remove_contact(self, owner_id: str, contact_id: str):
+        """Remove um contato"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM contacts WHERE owner_id = ? AND contact_id = ?', (owner_id, contact_id))
+        conn.commit()
+        conn.close()
+
+    def mark_messages_as_read(self, recipient_id: str, sender_id: str):
+        """Marca todas as mensagens de um contato como lidas"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE messages
+            SET read_status = 1
+            WHERE recipient_id = ? AND sender_id = ? AND read_status = 0
+        ''', (recipient_id, sender_id))
+        conn.commit()
+        conn.close()
+
+    def get_unread_count(self, recipient_id: str, sender_id: str) -> int:
+        """Obtém contagem de mensagens não lidas de um contato específico"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT COUNT(*)
+            FROM messages
+            WHERE recipient_id = ? AND sender_id = ? AND read_status = 0
+        ''', (recipient_id, sender_id))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else 0
 
     def save_message(self, message):
         """Salva mensagem"""
@@ -495,6 +551,10 @@ class P2PDatabase:
         result = cursor.fetchone()
         conn.close()
         return result[0] if result else None
+
+    def get_connection(self):
+        """Retorna conexão com o banco"""
+        return sqlite3.connect(self.db_path)
 
 
 # Usando alias para manter compatibilidade

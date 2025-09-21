@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="stylesheet" href="/static/css/modules/feed.css">
     <link rel="stylesheet" href="/static/css/modules/videos.css">
+    <link rel="stylesheet" href="/static/css/modules/wallet.css">
 </head>
 <body>
     <div class="app">
@@ -358,6 +359,9 @@
                                                 <span class="icon">📤</span>
                                                 Compartilhar
                                             </button>
+                                            <button class="star-donation-btn" id="modal-star-btn" onclick="openStarModal()">
+                                                ⭐ Send Stars
+                                            </button>
                                         </div>
                                     </div>
                                     <div class="video-description-section">
@@ -405,6 +409,76 @@
                     </div>
 
                 </section>
+            </div>
+
+            <!-- Wallet Section -->
+            <div class="section" id="wallet-section">
+                <div class="wallet-section">
+                    <div class="wallet-header">
+                        <div class="wallet-title">
+                            <h2>💰 DTC Wallet</h2>
+                            <p class="wallet-subtitle">DECTERUM Coin</p>
+                        </div>
+                        <div class="wallet-balance">
+                            <span class="balance-amount" id="wallet-balance">0.0000</span>
+                            <span class="balance-currency">DTC</span>
+                        </div>
+                    </div>
+
+                    <div class="blockchain-mode">
+                        <div class="mode-selector">
+                            <button class="mode-btn active" id="simple-mode-btn" onclick="switchBlockchainMode('simple')">
+                                🔹 Simple Mode
+                            </button>
+                            <button class="mode-btn" id="real-mode-btn" onclick="switchBlockchainMode('real')">
+                                💎 Real Blockchain
+                            </button>
+                        </div>
+                        <div class="mode-description">
+                            <span id="mode-description">Simple virtual currency for testing</span>
+                        </div>
+                    </div>
+
+                    <div class="wallet-actions">
+                        <button class="btn btn-primary" onclick="showSendDTCModal()">
+                            📤 Send DTC
+                        </button>
+                        <button class="btn btn-ghost" onclick="claimMiningReward()">
+                            ⛏️ Claim Mining Reward
+                        </button>
+                        <button class="btn btn-ghost" id="conversion-btn" onclick="showConversionModal()" style="display: none;">
+                            🔄 Convert to Crypto
+                        </button>
+                    </div>
+
+                    <div class="wallet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Total Earned</div>
+                            <div class="stat-value" id="total-earned">0.0000 DTC</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">From Mining</div>
+                            <div class="stat-value" id="mining-earned">0.0000 DTC</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">From Content</div>
+                            <div class="stat-value" id="content-earned">0.0000 DTC</div>
+                        </div>
+                    </div>
+
+                    <div class="transaction-history">
+                        <div class="section-header">
+                            <h3>Recent Transactions</h3>
+                        </div>
+                        <div class="transactions-list" id="transactions-list">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">💳</div>
+                                <h3>No transactions yet</h3>
+                                <p>Your transaction history will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Settings Section -->
@@ -491,6 +565,10 @@
                 <div class="nav-icon">🎬</div>
                 <div class="nav-label">Videos</div>
             </div>
+            <div class="nav-item" onclick="switchSection('wallet')">
+                <div class="nav-icon">💰</div>
+                <div class="nav-label">Wallet</div>
+            </div>
             <div class="nav-item" onclick="switchSection('settings')">
                 <div class="nav-icon">⚙</div>
                 <div class="nav-label">Settings</div>
@@ -538,7 +616,7 @@
             <form onsubmit="updateProfile(event)">
                 <div class="form-group">
                     <label class="form-label">Username</label>
-                    <input type="text" class="form-input" id="profile-username" 
+                    <input type="text" class="form-input" id="profile-username"
                            placeholder="Your username" required>
                 </div>
                 <div class="button-actions">
@@ -547,6 +625,173 @@
                     </button>
                     <button type="submit" class="btn btn-primary">
                         Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Send DTC Modal -->
+    <div class="modal" id="send-dtc-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Send DTC</div>
+                <div class="modal-subtitle">Transfer DECTERUM Coins to another user</div>
+            </div>
+            <form onsubmit="sendDTC(event)">
+                <div class="form-group">
+                    <label class="form-label">Recipient User ID</label>
+                    <input type="text" class="form-input" id="dtc-recipient"
+                           placeholder="Enter user ID" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount (DTC)</label>
+                    <input type="number" class="form-input" id="dtc-amount"
+                           placeholder="0.0000" step="0.0001" min="0.001" required>
+                    <div class="form-hint">Minimum: 0.001 DTC</div>
+                </div>
+                <div class="wallet-balance-info">
+                    <span>Available: <span id="modal-wallet-balance">0.0000</span> DTC</span>
+                </div>
+                <div class="button-actions">
+                    <button type="button" class="btn btn-ghost" onclick="hideSendDTCModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Send DTC
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Send Stars Modal -->
+    <div class="modal" id="send-stars-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">✨ Send Stars</div>
+                <div class="modal-subtitle">Support this content creator</div>
+            </div>
+            <form onsubmit="sendStars(event)">
+                <div class="stars-preview">
+                    <div class="stars-display">
+                        <span class="star-count" id="star-count">1</span>
+                        <span class="star-icon">⭐</span>
+                    </div>
+                    <div class="stars-value">
+                        = <span id="stars-dtc-value">0.01</span> DTC
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Number of Stars</label>
+                    <input type="range" class="star-slider" id="star-slider"
+                           min="1" max="100" value="1" oninput="updateStarCount(this.value)">
+                    <div class="slider-labels">
+                        <span>1</span>
+                        <span>100</span>
+                    </div>
+                </div>
+                <div class="creator-info">
+                    <span>To: <span id="star-recipient">Creator</span></span>
+                </div>
+                <div class="wallet-balance-info">
+                    <span>Available: <span id="stars-modal-balance">0.0000</span> DTC</span>
+                </div>
+                <div class="button-actions">
+                    <button type="button" class="btn btn-ghost" onclick="hideSendStarsModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Send Stars ⭐
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Crypto Conversion Modal -->
+    <div class="modal" id="conversion-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">🔄 Convert DTC</div>
+                <div class="modal-subtitle">Exchange DTC for other cryptocurrencies</div>
+            </div>
+            <form onsubmit="convertCrypto(event)">
+                <div class="conversion-preview">
+                    <div class="from-currency">
+                        <span class="amount" id="convert-from-amount">100</span>
+                        <span class="currency">DTC</span>
+                    </div>
+                    <div class="conversion-arrow">→</div>
+                    <div class="to-currency">
+                        <span class="amount" id="convert-to-amount">1.00</span>
+                        <span class="currency" id="convert-to-currency">USDT</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Amount to Convert (DTC)</label>
+                    <input type="number" class="form-input" id="conversion-amount"
+                           placeholder="100.0000" step="0.0001" min="1" value="100"
+                           oninput="updateConversionPreview()">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Convert To</label>
+                    <select class="form-input" id="conversion-currency" onchange="updateConversionPreview()">
+                        <option value="USDT">USDT (Tether)</option>
+                        <option value="USDC">USDC (USD Coin)</option>
+                        <option value="BTC">BTC (Bitcoin)</option>
+                        <option value="ETH">ETH (Ethereum)</option>
+                        <option value="BNB">BNB (Binance Coin)</option>
+                        <option value="ADA">ADA (Cardano)</option>
+                    </select>
+                </div>
+
+                <div class="conversion-details">
+                    <div class="detail-row">
+                        <span>Exchange Rate:</span>
+                        <span id="exchange-rate">1 DTC = 0.01 USDT</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Network Fee:</span>
+                        <span id="network-fee">~1.0 USDT</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Exchange Fee (1%):</span>
+                        <span id="exchange-fee">0.01 USDT</span>
+                    </div>
+                    <div class="detail-row total">
+                        <span>You'll Receive:</span>
+                        <span id="final-amount">~0.99 USDT</span>
+                    </div>
+                </div>
+
+                <div class="conversion-instructions">
+                    <div class="instruction-step">
+                        <span class="step-number">1</span>
+                        <span>Send DTC to conversion pool</span>
+                    </div>
+                    <div class="instruction-step">
+                        <span class="step-number">2</span>
+                        <span>Wait for confirmation (1-3 blocks)</span>
+                    </div>
+                    <div class="instruction-step">
+                        <span class="step-number">3</span>
+                        <span>Receive crypto in external wallet</span>
+                    </div>
+                </div>
+
+                <div class="wallet-balance-info">
+                    <span>Available: <span id="conversion-balance">0.0000</span> DTC</span>
+                </div>
+
+                <div class="button-actions">
+                    <button type="button" class="btn btn-ghost" onclick="hideConversionModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Start Conversion 🔄
                     </button>
                 </div>
             </form>
@@ -564,6 +809,7 @@
     <script src="/static/js/modules/feed.js"></script>
     <script src="/static/js/modules/video-demo-data.js"></script>
     <script src="/static/js/modules/videos.js"></script>
+    <script src="/static/js/modules/wallet.js"></script>
     <script src="/static/script.js"></script>
 
     <!-- Initialize Video Module -->
