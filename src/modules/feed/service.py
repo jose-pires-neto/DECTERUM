@@ -2,6 +2,7 @@ import sqlite3
 import json
 import time
 import logging
+import threading
 from typing import List, Dict, Optional, Tuple
 from ..feed.models import Post, Vote, CommunityBadge, UserReputation, SubThread, BADGE_TYPES
 
@@ -13,6 +14,24 @@ class FeedService:
 
     def __init__(self, database):
         self.db = database
+        self._db_lock = threading.RLock()
+
+    def _get_connection_with_retry(self, max_retries=3):
+        """Obtém conexão com retry automático"""
+        for attempt in range(max_retries):
+            try:
+                conn = sqlite3.connect(self.db.db_path, timeout=60, check_same_thread=False)
+                conn.execute('PRAGMA journal_mode=WAL')
+                conn.execute('PRAGMA busy_timeout=60000')
+                conn.execute('PRAGMA wal_autocheckpoint=100')
+                conn.execute('PRAGMA synchronous=NORMAL')
+                return conn
+            except sqlite3.OperationalError as e:
+                if "database is locked" in str(e) and attempt < max_retries - 1:
+                    logger.warning(f"Database locked, tentativa {attempt + 1}/{max_retries}")
+                    time.sleep(0.1 * (2 ** attempt))  # Backoff exponencial
+                    continue
+                raise
 
     # ========== POSTS ==========
 
@@ -41,7 +60,9 @@ class FeedService:
     def get_feed(self, user_id: str, limit: int = 50, offset: int = 0,
                 sort_by: str = "timestamp") -> List[Dict]:
         """Obtém posts do feed ordenados"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
 
         # Query base para posts principais (não comentários)
@@ -77,7 +98,9 @@ class FeedService:
 
     def get_post_by_id(self, post_id: str) -> Optional[Dict]:
         """Busca um post específico"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
 
         cursor.execute('''
@@ -110,30 +133,41 @@ class FeedService:
         if vote_type not in ["up", "down"]:
             return False
 
-        # Verificar se já votou
-        existing_vote = self._get_user_vote(post_id, voter_id)
+        with self._db_lock:
+            conn = self._get_connection_with_retry()
+            try:
+                # Verificar se já votou
+                existing_vote = self._get_user_vote_with_conn(conn, post_id, voter_id)
 
-        if existing_vote:
-            if existing_vote['vote_type'] == vote_type:
-                # Remover voto se é o mesmo tipo
-                self._remove_vote(existing_vote['id'])
-                logger.info(f"Voto removido: {voter_username} em {post_id}")
-            else:
-                # Atualizar voto para o tipo oposto
-                self._update_vote(existing_vote['id'], vote_type)
-                logger.info(f"Voto atualizado: {voter_username} em {post_id}")
-        else:
-            # Criar novo voto
-            vote_weight = self._get_user_vote_weight(voter_id)
-            vote = Vote.create(post_id, voter_id, voter_username, vote_type, vote_weight)
-            self._save_vote(vote)
-            logger.info(f"Novo voto: {voter_username} ({vote_type}) em {post_id}")
+                if existing_vote:
+                    if existing_vote['vote_type'] == vote_type:
+                        # Remover voto se é o mesmo tipo
+                        self._remove_vote_with_conn(conn, existing_vote['id'])
+                        logger.info(f"Voto removido: {voter_username} em {post_id}")
+                    else:
+                        # Atualizar voto para o tipo oposto
+                        self._update_vote_with_conn(conn, existing_vote['id'], vote_type)
+                        logger.info(f"Voto atualizado: {voter_username} em {post_id}")
+                else:
+                    # Criar novo voto
+                    vote_weight = self._get_user_vote_weight(voter_id)
+                    vote = Vote.create(post_id, voter_id, voter_username, vote_type, vote_weight)
+                    self._save_vote_with_conn(conn, vote)
+                    logger.info(f"Novo voto: {voter_username} ({vote_type}) em {post_id}")
 
-        # Recalcular pontuações do post
-        self._recalculate_post_scores(post_id)
-        self._update_user_stats(voter_id, votes_given_increment=1)
+                # Recalcular pontuações do post
+                self._recalculate_post_scores_with_conn(conn, post_id)
+                self._update_user_stats_with_conn(conn, voter_id, votes_given_increment=1)
 
-        return True
+                conn.commit()
+                return True
+
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Erro votando no post {post_id}: {e}")
+                raise
+            finally:
+                conn.close()
 
     def get_user_vote(self, post_id: str, user_id: str) -> Optional[str]:
         """Retorna o tipo de voto do usuário no post"""
@@ -260,20 +294,22 @@ class FeedService:
 
     def _save_post(self, post: Post):
         """Salva post no banco"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
 
         cursor.execute('''
             INSERT OR REPLACE INTO feed_posts
             (id, author_id, author_username, content, timestamp, post_type,
              parent_post_id, thread_level, upvotes, downvotes, comments_count,
-             shares_count, weight_score, is_pinned, tags, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             retweets_count, shares_count, weight_score, is_pinned, tags, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             post.id, post.author_id, post.author_username, post.content,
             post.timestamp, post.post_type, post.parent_post_id,
             post.thread_level, post.upvotes, post.downvotes,
-            post.comments_count, post.shares_count, post.weight_score,
+            post.comments_count, post.retweets_count, post.shares_count, post.weight_score,
             int(post.is_pinned), json.dumps(post.tags), json.dumps(post.metadata)
         ))
 
@@ -282,18 +318,24 @@ class FeedService:
 
     def _save_vote(self, vote: Vote):
         """Salva voto no banco"""
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+        try:
+            self._save_vote_with_conn(conn, vote)
+            conn.commit()
+        finally:
+            conn.close()
 
+    def _save_vote_with_conn(self, conn, vote: Vote):
+        """Salva voto no banco usando conexão existente"""
+        cursor = conn.cursor()
         cursor.execute('''
             INSERT OR REPLACE INTO feed_votes
             (id, post_id, voter_id, voter_username, vote_type, vote_weight, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (vote.id, vote.post_id, vote.voter_id, vote.voter_username,
               vote.vote_type, vote.vote_weight, vote.timestamp))
-
-        conn.commit()
-        conn.close()
 
     def _save_badge(self, badge: CommunityBadge):
         """Salva selo no banco"""
@@ -367,14 +409,15 @@ class FeedService:
             'upvotes': row[8],
             'downvotes': row[9],
             'comments_count': row[10],
-            'shares_count': row[11],
-            'weight_score': row[12],
-            'is_pinned': bool(row[13]),
-            'tags': json.loads(row[14]) if row[14] else [],
-            'metadata': json.loads(row[15]) if row[15] else {},
+            'retweets_count': row[11],
+            'shares_count': row[12],
+            'weight_score': row[13],
+            'is_pinned': bool(row[14]),
+            'tags': json.loads(row[15]) if row[15] else [],
+            'metadata': json.loads(row[16]) if row[16] else {},
             'net_votes': row[8] - row[9],
-            'reputation_level': row[16] if len(row) > 16 else 'novato',
-            'author_vote_weight': row[17] if len(row) > 17 else 1.0
+            'reputation_level': row[17] if len(row) > 17 else 'novato',
+            'author_vote_weight': row[18] if len(row) > 18 else 1.0
         }
 
     def _get_post_badges(self, post_id: str) -> Dict[str, int]:
@@ -398,7 +441,9 @@ class FeedService:
 
     def _get_post_comments(self, post_id: str, limit: int = 50, offset: int = 0) -> List[Dict]:
         """Obtém comentários de um post"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
 
         cursor.execute(f'''
@@ -421,9 +466,17 @@ class FeedService:
 
     def _get_user_vote(self, post_id: str, user_id: str) -> Optional[Dict]:
         """Busca voto do usuário no post"""
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+        try:
+            return self._get_user_vote_with_conn(conn, post_id, user_id)
+        finally:
+            conn.close()
 
+    def _get_user_vote_with_conn(self, conn, post_id: str, user_id: str) -> Optional[Dict]:
+        """Busca voto do usuário no post usando conexão existente"""
+        cursor = conn.cursor()
         cursor.execute('''
             SELECT id, vote_type, vote_weight, timestamp
             FROM feed_votes
@@ -431,8 +484,6 @@ class FeedService:
         ''', (post_id, user_id))
 
         row = cursor.fetchone()
-        conn.close()
-
         if row:
             return {
                 'id': row[0],
@@ -460,7 +511,17 @@ class FeedService:
 
     def _recalculate_post_scores(self, post_id: str):
         """Recalcula pontuações do post com base nos votos ponderados"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+        try:
+            self._recalculate_post_scores_with_conn(conn, post_id)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _recalculate_post_scores_with_conn(self, conn, post_id: str):
+        """Recalcula pontuações do post usando conexão existente"""
         cursor = conn.cursor()
 
         # Calcular votos ponderados
@@ -489,12 +550,11 @@ class FeedService:
             WHERE id = ?
         ''', (up_count, down_count, weight_score, post_id))
 
-        conn.commit()
-        conn.close()
-
     def _increment_comments_count(self, post_id: str):
         """Incrementa contador de comentários"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
         cursor = conn.cursor()
 
         cursor.execute('''
@@ -509,7 +569,22 @@ class FeedService:
     def _update_user_stats(self, user_id: str, posts_increment: int = 0,
                           votes_given_increment: int = 0, badges_increment: int = 0):
         """Atualiza estatísticas do usuário"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+        try:
+            self._update_user_stats_with_conn(conn, user_id, posts_increment, votes_given_increment, badges_increment)
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Recalcular reputação
+        if posts_increment > 0 or votes_given_increment > 0 or badges_increment > 0:
+            self.calculate_user_reputation(user_id)
+
+    def _update_user_stats_with_conn(self, conn, user_id: str, posts_increment: int = 0,
+                          votes_given_increment: int = 0, badges_increment: int = 0):
+        """Atualiza estatísticas do usuário usando conexão existente"""
         cursor = conn.cursor()
 
         # Verificar se existe reputação
@@ -535,13 +610,6 @@ class FeedService:
                 last_updated = ?
             WHERE user_id = ?
         ''', (posts_increment, votes_given_increment, badges_increment, time.time(), user_id))
-
-        conn.commit()
-        conn.close()
-
-        # Recalcular reputação
-        if posts_increment > 0 or votes_given_increment > 0 or badges_increment > 0:
-            self.calculate_user_reputation(user_id)
 
     def _calculate_user_engagement_stats(self, user_id: str) -> Dict:
         """Calcula estatísticas de engajamento do usuário"""
@@ -592,19 +660,141 @@ class FeedService:
 
     def _remove_vote(self, vote_id: str):
         """Remove voto"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+        try:
+            self._remove_vote_with_conn(conn, vote_id)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _remove_vote_with_conn(self, conn, vote_id: str):
+        """Remove voto usando conexão existente"""
         cursor = conn.cursor()
         cursor.execute('DELETE FROM feed_votes WHERE id = ?', (vote_id,))
-        conn.commit()
-        conn.close()
 
     def _update_vote(self, vote_id: str, new_vote_type: str):
         """Atualiza tipo de voto"""
-        conn = sqlite3.connect(self.db.db_path)
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+        try:
+            self._update_vote_with_conn(conn, vote_id, new_vote_type)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _update_vote_with_conn(self, conn, vote_id: str, new_vote_type: str):
+        """Atualiza tipo de voto usando conexão existente"""
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE feed_votes SET vote_type = ?, timestamp = ?
             WHERE id = ?
         ''', (new_vote_type, time.time(), vote_id))
-        conn.commit()
+
+    # ========== PESQUISA ==========
+
+    def search_posts(self, query: str, limit: int = 20) -> List[Dict]:
+        """Pesquisa posts por conteúdo"""
+        conn = sqlite3.connect(self.db.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT * FROM feed_posts
+            WHERE content LIKE ? AND parent_post_id IS NULL
+            ORDER BY timestamp DESC
+            LIMIT ?
+        ''', (f'%{query}%', limit))
+
+        posts = []
+        for row in cursor.fetchall():
+            post_dict = self._row_to_post_dict(row)
+            posts.append(post_dict)
+
         conn.close()
+        return posts
+
+    def get_user_posts(self, user_id: str, limit: int = 20, offset: int = 0) -> List[Dict]:
+        """Obtém posts de um usuário específico"""
+        conn = sqlite3.connect(self.db.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT * FROM feed_posts
+            WHERE author_id = ? AND parent_post_id IS NULL
+            ORDER BY timestamp DESC
+            LIMIT ? OFFSET ?
+        ''', (user_id, limit, offset))
+
+        posts = []
+        for row in cursor.fetchall():
+            post_dict = self._row_to_post_dict(row)
+            posts.append(post_dict)
+
+        conn.close()
+        return posts
+
+
+    # ========== RETWEETS ==========
+
+    def create_retweet(self, original_post_id: str, user_id: str, username: str,
+                      retweet_type: str = 'simple', comment: Optional[str] = None) -> Dict:
+        """Cria um retweet (simples ou com comentário)"""
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+        cursor = conn.cursor()
+
+        try:
+            # Verificar se já retweetou
+            cursor.execute('''
+                SELECT id FROM feed_retweets WHERE original_post_id = ? AND user_id = ?
+            ''', (original_post_id, user_id))
+
+            if cursor.fetchone():
+                raise Exception("Você já republicou este post")
+
+            # Criar retweet
+            retweet_id = f"rt_{time.time()}_{user_id[:8]}"
+            cursor.execute('''
+                INSERT INTO feed_retweets
+                (id, original_post_id, user_id, username, retweet_type, comment, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (retweet_id, original_post_id, user_id, username, retweet_type, comment, time.time()))
+
+            # Atualizar contador de retweets
+            self._update_post_retweets_count_with_conn(conn, original_post_id)
+
+            # Obter novo contador
+            cursor.execute('SELECT retweets_count FROM feed_posts WHERE id = ?', (original_post_id,))
+            retweets_count = cursor.fetchone()[0]
+
+            conn.commit()
+            return {
+                "retweet_id": retweet_id,
+                "retweets_count": retweets_count
+            }
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def _update_post_retweets_count(self, post_id: str):
+        """Atualiza contador de retweets do post"""
+        conn = sqlite3.connect(self.db.db_path, timeout=30)
+        conn.execute('PRAGMA journal_mode=WAL')
+        conn.execute('PRAGMA busy_timeout=30000')
+        try:
+            self._update_post_retweets_count_with_conn(conn, post_id)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _update_post_retweets_count_with_conn(self, conn, post_id: str):
+        """Atualiza contador de retweets do post usando conexão existente"""
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM feed_retweets WHERE original_post_id = ?', (post_id,))
+        retweets_count = cursor.fetchone()[0]
+        cursor.execute('UPDATE feed_posts SET retweets_count = ? WHERE id = ?', (retweets_count, post_id))

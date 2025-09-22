@@ -445,6 +445,146 @@ def setup_feed_routes(feed_service: FeedService, node) -> APIRouter:
                 content={"error": str(e)}
             )
 
+    # ========== PESQUISA ==========
+
+    @router.get("/search")
+    async def search_feed(
+        q: str = Query(..., min_length=1),
+        limit: int = Query(20, ge=1, le=50)
+    ):
+        """Pesquisa posts e usuários"""
+        try:
+            user = node.get_current_user()
+            if not user:
+                return JSONResponse(
+                    status_code=401,
+                    content={"error": "Usuário não autenticado"}
+                )
+
+            # Buscar posts que contenham a query no conteúdo
+            posts = feed_service.search_posts(query=q, limit=limit)
+
+            # Simular busca de usuários (placeholder)
+            users = []
+            if len(q) >= 2:
+                users = [
+                    {"type": "user", "username": f"{q}_user", "user_id": "search_user_1"},
+                    {"type": "user", "username": f"user_{q}", "user_id": "search_user_2"}
+                ]
+
+            # Combinar resultados
+            results = []
+            for post in posts:
+                post["type"] = "post"
+                results.append(post)
+
+            results.extend(users[:5])  # Limitar usuários
+
+            return {
+                "success": True,
+                "results": results[:limit],
+                "query": q,
+                "total": len(results)
+            }
+
+        except Exception as e:
+            logger.error(f"Erro na pesquisa '{q}': {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": str(e)}
+            )
+
+    # ========== USUÁRIOS ==========
+
+    @router.get("/users/{user_id}/posts")
+    async def get_user_posts(
+        user_id: str,
+        limit: int = Query(20, ge=1, le=100),
+        offset: int = Query(0, ge=0)
+    ):
+        """Obtém posts de um usuário específico"""
+        try:
+            current_user = node.get_current_user()
+            if not current_user:
+                return JSONResponse(
+                    status_code=401,
+                    content={"error": "Usuário não autenticado"}
+                )
+
+            posts = feed_service.get_user_posts(
+                user_id=user_id,
+                limit=limit,
+                offset=offset
+            )
+
+            return {
+                "success": True,
+                "posts": posts,
+                "total": len(posts),
+                "offset": offset,
+                "user_id": user_id
+            }
+
+        except Exception as e:
+            logger.error(f"Erro obtendo posts do usuário {user_id}: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": str(e)}
+            )
+
+
+    # ========== RETWEETS ==========
+
+    @router.post("/posts/{post_id}/retweet")
+    async def retweet_post(post_id: str, data: Dict[str, Any]):
+        """Republicar um post (simples ou com comentário)"""
+        try:
+            retweet_type = data.get('type', 'simple')
+            content = data.get('content', '')
+
+            if retweet_type not in ['simple', 'quote']:
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "Tipo de retweet deve ser 'simple' ou 'quote'"}
+                )
+
+            user = node.get_current_user()
+            if not user:
+                return JSONResponse(
+                    status_code=401,
+                    content={"error": "Usuário não autenticado"}
+                )
+
+            # Verificar se o post existe
+            original_post = feed_service.get_post_by_id(post_id)
+            if not original_post:
+                return JSONResponse(
+                    status_code=404,
+                    content={"error": "Post não encontrado"}
+                )
+
+            result = feed_service.create_retweet(
+                original_post_id=post_id,
+                user_id=node.current_user_id,
+                username=user['username'],
+                retweet_type=retweet_type,
+                comment=content if retweet_type == 'quote' else None
+            )
+
+            return {
+                "success": True,
+                "retweet_id": result["retweet_id"],
+                "retweets_count": result["retweets_count"],
+                "message": "Post republicado com sucesso"
+            }
+
+        except Exception as e:
+            logger.error(f"Erro republicando post {post_id}: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": str(e)}
+            )
+
     # ========== INFORMAÇÕES GERAIS ==========
 
     @router.get("/badge-types")

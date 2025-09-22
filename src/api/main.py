@@ -287,3 +287,7 @@ def create_app(port: int = 8000) -> FastAPI:
     app.state.feed_service = feed_service
 
     return app
+
+
+# Criar instância da aplicação para uvicorn
+app = create_app()

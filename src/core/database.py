@@ -106,6 +106,7 @@ class P2PDatabase:
                 upvotes INTEGER DEFAULT 0,
                 downvotes INTEGER DEFAULT 0,
                 comments_count INTEGER DEFAULT 0,
+                retweets_count INTEGER DEFAULT 0,
                 shares_count INTEGER DEFAULT 0,
                 weight_score REAL DEFAULT 1.0,
                 is_pinned INTEGER DEFAULT 0,
@@ -184,12 +185,30 @@ class P2PDatabase:
             )
         ''')
 
+
+        # Tabela de retweets/republicações
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS feed_retweets (
+                id TEXT PRIMARY KEY,
+                original_post_id TEXT,
+                user_id TEXT,
+                username TEXT,
+                retweet_type TEXT DEFAULT 'simple',
+                comment TEXT,
+                timestamp REAL,
+                FOREIGN KEY (original_post_id) REFERENCES feed_posts (id),
+                FOREIGN KEY (user_id) REFERENCES users (user_id),
+                UNIQUE(original_post_id, user_id)
+            )
+        ''')
+
         # Índices para performance
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_feed_posts_timestamp ON feed_posts(timestamp)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_feed_posts_author ON feed_posts(author_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_feed_posts_parent ON feed_posts(parent_post_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_feed_votes_post ON feed_votes(post_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_community_badges_post ON community_badges(post_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_feed_retweets_original ON feed_retweets(original_post_id)')
 
         # Tabelas do módulo de vídeos
         cursor.execute('''

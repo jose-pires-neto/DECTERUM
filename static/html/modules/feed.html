@@ -1,54 +1,15 @@
 <!-- Feed Section Template -->
 <div class="feed-section" data-module="feed">
-    <!-- Create Post Section -->
-    <div class="create-post-container">
-        <div class="create-post-header">
-            <div class="user-avatar">👤</div>
-            <div class="user-info">
-                <span id="feed-username">User</span>
-                <div class="reputation-badge" id="feed-user-reputation">
-                    <span class="reputation-level">Novato</span>
-                    <span class="vote-weight">1.0x</span>
-                </div>
-            </div>
-        </div>
-        <div class="create-post-form">
-            <textarea
-                id="post-content"
-                placeholder="O que você está pensando?"
-                rows="3"
-                maxlength="500"
-            ></textarea>
-            <div class="post-options">
-                <div class="post-tags">
-                    <input type="text" id="post-tags" placeholder="Tags (separadas por vírgula)" />
-                </div>
-                <div class="post-actions">
-                    <span id="char-count">0/500</span>
-                    <button class="btn btn-primary" onclick="DECTERUM.Feed.createPost()" id="post-btn" disabled>
-                        Publicar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Feed Controls -->
     <div class="feed-controls">
-        <div class="sort-options">
-            <button class="sort-btn active" onclick="DECTERUM.Feed.sortFeed('timestamp')" data-sort="timestamp">
-                🕒 Recentes
+        <div class="feed-tabs">
+            <button class="tab-btn active" onclick="DECTERUM.Feed.switchTab('home')" data-tab="home">
+                Para você
             </button>
-            <button class="sort-btn" onclick="DECTERUM.Feed.sortFeed('weight')" data-sort="weight">
-                ⭐ Populares
-            </button>
-            <button class="sort-btn" onclick="DECTERUM.Feed.sortFeed('engagement')" data-sort="engagement">
-                🔥 Tendências
+            <button class="tab-btn" onclick="DECTERUM.Feed.switchTab('following')" data-tab="following">
+                Seguindo
             </button>
         </div>
-        <button class="refresh-btn" onclick="DECTERUM.Feed.refreshFeed()" title="Atualizar feed">
-            🔄
-        </button>
     </div>
 
     <!-- Feed Posts -->
@@ -65,57 +26,6 @@
             Carregar mais posts
         </button>
     </div>
-</div>
-
-<!-- Feed Modals -->
-<div class="feed-modals">
-    <!-- Badge Award Modal -->
-    <div class="modal" id="badge-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Atribuir Selo Comunitário</div>
-                <div class="modal-subtitle">Escolha um selo para este post</div>
-            </div>
-            <div class="badge-grid" id="badge-grid">
-                <!-- Selos serão carregados dinamicamente -->
-            </div>
-            <div class="button-actions">
-                <button type="button" class="btn btn-ghost" onclick="DECTERUM.Feed.hideBadgeModal()">
-                    Cancelar
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sub-thread Modal -->
-    <div class="modal" id="subthread-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">Criar Sub-thread</div>
-                <div class="modal-subtitle">Organize a discussão em tópicos específicos</div>
-            </div>
-            <form onsubmit="DECTERUM.Feed.createSubThread(event)">
-                <div class="form-group">
-                    <label class="form-label">Título da Discussão</label>
-                    <input type="text" class="form-input" id="subthread-title"
-                           placeholder="Ex: Aspectos técnicos deste tópico" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Descrição (opcional)</label>
-                    <textarea class="form-input" id="subthread-description"
-                              placeholder="Explique o foco desta sub-discussão..." rows="3"></textarea>
-                </div>
-                <div class="button-actions">
-                    <button type="button" class="btn btn-ghost" onclick="DECTERUM.Feed.hideSubThreadModal()">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        Criar Sub-thread
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <!-- Comments Modal -->
     <div class="modal" id="comments-modal">
@@ -128,7 +38,7 @@
                 <div class="comment-form">
                     <textarea id="comment-content" placeholder="Escreva seu comentário..." rows="3"></textarea>
                     <div class="comment-actions">
-                        <span id="comment-char-count">0/500</span>
+                        <span id="comment-char-count">0/280</span>
                         <button class="btn btn-primary" onclick="DECTERUM.Feed.submitComment()" id="comment-btn" disabled>
                             Comentar
                         </button>
@@ -136,6 +46,262 @@
                 </div>
                 <div class="comments-list" id="comments-list">
                     <!-- Comentários serão carregados aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Retweet Modal -->
+    <div class="modal" id="retweet-modal">
+        <div class="modal-content retweet-modal-content">
+            <div class="modal-header">
+                <button class="modal-close" onclick="DECTERUM.Feed.hideRetweetModal()">×</button>
+            </div>
+            <div class="retweet-options">
+                <button class="retweet-option" onclick="DECTERUM.Feed.retweet('simple')">
+                    <div class="retweet-icon">🔄</div>
+                    <div class="retweet-text">
+                        <div class="retweet-title">Republicar</div>
+                        <div class="retweet-subtitle">Compartilhar instantaneamente</div>
+                    </div>
+                </button>
+                <button class="retweet-option" onclick="DECTERUM.Feed.retweet('quote')">
+                    <div class="retweet-icon">✍️</div>
+                    <div class="retweet-text">
+                        <div class="retweet-title">Republicar com comentário</div>
+                        <div class="retweet-subtitle">Adicionar seus pensamentos</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quote Retweet Modal -->
+    <div class="modal" id="quote-retweet-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Republicar com comentário</div>
+                <button class="modal-close" onclick="DECTERUM.Feed.hideQuoteRetweetModal()">×</button>
+            </div>
+            <div class="quote-retweet-form">
+                <div class="quote-input-section">
+                    <div class="user-avatar">👤</div>
+                    <textarea id="quote-content" placeholder="Adicione um comentário..." maxlength="280"></textarea>
+                </div>
+                <div class="quoted-post" id="quoted-post-preview">
+                    <!-- Original post preview will be inserted here -->
+                </div>
+                <div class="quote-actions">
+                    <div class="char-counter">
+                        <span id="quote-char-count">280</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="DECTERUM.Feed.submitQuoteRetweet()" id="quote-submit-btn">
+                        Republicar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Post Actions Menu -->
+    <div class="dropdown-menu" id="post-actions-menu">
+        <button class="dropdown-item" onclick="DECTERUM.Feed.followUser()">
+            👤 Seguir usuário
+        </button>
+        <button class="dropdown-item" onclick="DECTERUM.Feed.muteUser()">
+            🔇 Silenciar
+        </button>
+        <button class="dropdown-item" onclick="DECTERUM.Feed.blockUser()">
+            🚫 Bloquear
+        </button>
+        <button class="dropdown-item" onclick="DECTERUM.Feed.reportPost()">
+            🚨 Denunciar post
+        </button>
+    </div>
+
+    <!-- Floating Action Button -->
+    <div class="fab-container">
+        <button class="fab-main" id="fab-main" onclick="DECTERUM.Feed.toggleFabMenu()">
+            <span class="fab-icon" id="fab-icon">✍️</span>
+        </button>
+        <div class="fab-menu" id="fab-menu">
+            <button class="fab-option" onclick="DECTERUM.Feed.openCreatePostModal()" title="Criar post">
+                <span class="fab-option-icon">✍️</span>
+                <span class="fab-option-text">Postar</span>
+            </button>
+            <button class="fab-option" onclick="DECTERUM.Feed.openProfileModal()" title="Meu perfil">
+                <span class="fab-option-icon">👤</span>
+                <span class="fab-option-text">Perfil</span>
+            </button>
+            <button class="fab-option" onclick="DECTERUM.Feed.openSearchModal()" title="Pesquisar">
+                <span class="fab-option-icon">🔍</span>
+                <span class="fab-option-text">Pesquisar</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Create Post Modal -->
+    <div class="modal" id="create-post-modal">
+        <div class="modal-content create-post-modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Criar post</div>
+                <button class="modal-close" onclick="DECTERUM.Feed.closeCreatePostModal()">×</button>
+            </div>
+            <div class="create-post-form">
+                <div class="create-post-header">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-info">
+                        <span id="modal-username">User</span>
+                        <div class="user-handle" id="modal-user-handle">@user</div>
+                    </div>
+                </div>
+                <div class="post-input-section">
+                    <textarea
+                        id="modal-post-content"
+                        placeholder="O que está acontecendo?"
+                        maxlength="280"
+                    ></textarea>
+                    <div class="post-options">
+                        <div class="post-media-options">
+                            <button class="media-btn" title="Adicionar imagem">
+                                📷
+                            </button>
+                            <button class="media-btn" title="Adicionar GIF">
+                                🎬
+                            </button>
+                            <button class="media-btn" title="Criar enquete">
+                                📊
+                            </button>
+                            <button class="media-btn" title="Agendar">
+                                📅
+                            </button>
+                        </div>
+                        <div class="post-actions">
+                            <div class="char-counter">
+                                <div class="char-progress" id="modal-char-progress"></div>
+                                <span id="modal-char-count">280</span>
+                            </div>
+                            <button class="btn btn-primary post-btn" onclick="DECTERUM.Feed.createPostFromModal()" id="modal-post-btn" disabled>
+                                Postar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal" id="profile-modal">
+        <div class="modal-content profile-modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Meu Perfil</div>
+                <button class="modal-close" onclick="DECTERUM.Feed.closeProfileModal()">×</button>
+            </div>
+            <div class="profile-content">
+                <div class="profile-header">
+                    <div class="profile-avatar">👤</div>
+                    <div class="profile-info">
+                        <h3 id="profile-username">User</h3>
+                        <div class="profile-handle" id="profile-user-handle">@user</div>
+                        <div class="profile-stats">
+                            <span id="profile-posts-count">0 posts</span>
+                            <span id="profile-followers-count">0 seguidores</span>
+                            <span id="profile-following-count">0 seguindo</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="profile-tabs">
+                    <button class="profile-tab active" onclick="DECTERUM.Feed.switchProfileTab('posts')">
+                        Posts
+                    </button>
+                    <button class="profile-tab" onclick="DECTERUM.Feed.switchProfileTab('retweets')">
+                        Republicações
+                    </button>
+                    <button class="profile-tab" onclick="DECTERUM.Feed.switchProfileTab('votes')">
+                        Votos
+                    </button>
+                </div>
+                <div class="profile-posts" id="profile-posts">
+                    <!-- Posts do usuário serão carregados aqui -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div class="modal" id="search-modal">
+        <div class="modal-content search-modal-content">
+            <div class="modal-header">
+                <div class="search-input-container">
+                    <input type="text" id="search-input" placeholder="Pesquisar posts e pessoas..." />
+                    <button class="search-btn" onclick="DECTERUM.Feed.performSearch()">
+                        🔍
+                    </button>
+                </div>
+                <button class="modal-close" onclick="DECTERUM.Feed.closeSearchModal()">×</button>
+            </div>
+            <div class="search-content">
+                <div class="search-tabs">
+                    <button class="search-tab active" onclick="DECTERUM.Feed.switchSearchTab('all')">
+                        Tudo
+                    </button>
+                    <button class="search-tab" onclick="DECTERUM.Feed.switchSearchTab('users')">
+                        Pessoas
+                    </button>
+                    <button class="search-tab" onclick="DECTERUM.Feed.switchSearchTab('posts')">
+                        Posts
+                    </button>
+                </div>
+                <div class="search-results" id="search-results">
+                    <div class="search-placeholder">
+                        <div class="search-placeholder-icon">🔍</div>
+                        <p>Digite algo para pesquisar</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Badge Modal -->
+    <div class="modal" id="badge-modal">
+        <div class="modal-content badge-modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Atribuir Selo Comunitário</div>
+                <button class="modal-close" onclick="DECTERUM.Feed.hideBadgeModal()">×</button>
+            </div>
+            <div class="badge-options" id="badge-grid">
+                <div class="badge-option" onclick="DECTERUM.Feed.awardBadge('helpful')">
+                    <div class="badge-option-icon">🤝</div>
+                    <div class="badge-option-name">Útil</div>
+                </div>
+                <div class="badge-option" onclick="DECTERUM.Feed.awardBadge('informative')">
+                    <div class="badge-option-icon">📚</div>
+                    <div class="badge-option-name">Informativo</div>
+                </div>
+                <div class="badge-option" onclick="DECTERUM.Feed.awardBadge('funny')">
+                    <div class="badge-option-icon">😄</div>
+                    <div class="badge-option-name">Engraçado</div>
+                </div>
+                <div class="badge-option" onclick="DECTERUM.Feed.awardBadge('insightful')">
+                    <div class="badge-option-icon">💡</div>
+                    <div class="badge-option-name">Perspicaz</div>
+                </div>
+                <div class="badge-option" onclick="DECTERUM.Feed.awardBadge('accurate')">
+                    <div class="badge-option-icon">✅</div>
+                    <div class="badge-option-name">Preciso</div>
+                </div>
+                <div class="badge-option" onclick="DECTERUM.Feed.awardBadge('well_written')">
+                    <div class="badge-option-icon">✍️</div>
+                    <div class="badge-option-name">Bem Escrito</div>
+                </div>
+                <div class="badge-option" onclick="DECTERUM.Feed.awardBadge('controversial')">
+                    <div class="badge-option-icon">⚡</div>
+                    <div class="badge-option-name">Controverso</div>
+                </div>
+                <div class="badge-option" onclick="DECTERUM.Feed.awardBadge('creative')">
+                    <div class="badge-option-icon">🎨</div>
+                    <div class="badge-option-name">Criativo</div>
                 </div>
             </div>
         </div>

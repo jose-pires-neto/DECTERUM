@@ -19,6 +19,7 @@ class Post:
     upvotes: int = 0
     downvotes: int = 0
     comments_count: int = 0
+    retweets_count: int = 0
     shares_count: int = 0
     weight_score: float = 1.0  # Score calculado com base no peso dos votos
     is_pinned: bool = False
